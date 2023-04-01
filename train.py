@@ -10,6 +10,7 @@ from utils.my_dataset import VOCSegmentation
 from utils import transforms as T
 
 from torch.utils.tensorboard import SummaryWriter
+from utils.mytools import calculater_1
 def _create_folder(args):
     # 用来保存训练以及验证过程中信息
     if not os.path.exists("logs"):
@@ -101,6 +102,7 @@ def create_model(args,in_channels, num_classes, base_c=32):
 def main(args):
     #-----------------------初始化-----------------------
     log_dir, results_file=_create_folder(args)
+    tb = SummaryWriter(log_dir=log_dir)
     device = torch.device(args.device if torch.cuda.is_available() else "cpu")
     batch_size = args.batch_size
     # segmentation nun_classes + background
@@ -142,19 +144,28 @@ def main(args):
     for epoch in range(args.start_epoch, args.epochs):
         mean_loss, lr = train_one_epoch(model, optimizer, train_loader, device, epoch, num_classes,
                                         lr_scheduler=lr_scheduler, print_freq=args.print_freq, scaler=scaler)
-
         confmat, dice = evaluate(model, val_loader, device=device, num_classes=num_classes)
-        val_info = str(confmat)
-        print(val_info)
-        print(f"dice loss: {1-dice:.3f}")
-        # write into txt
+        # -----------------------保存日志-----------------------
         with open(results_file, "a") as f:
             # 记录每个epoch对应的train_loss、lr以及验证集各指标
-            train_info = f"[epoch: {epoch}]\n" \
-                         f"train_loss: {mean_loss:.4f}\n" \
-                         f"lr: {lr:.6f}\n" \
-                         f"dice coefficient: {dice:.3f}\n"
-            f.write(train_info + val_info + "\n\n")
+            train_log="train_loss: {:.4f}, lr: {:.6f}".format(epoch, mean_loss, lr)
+            val_log=confmat
+            val_log["dice loss"]=1-dice
+            print('--train_log:',train_log)
+            print('--val_log:',val_log)
+            f.write("Epoch: {}  \n".format(epoch))
+            f.write("train_log: {}  \n".format(train_log))
+            f.write("val_log: {}  \n".format(val_log))
+            if epoch == args.epochs - 1:
+                # f.write("args: {}  \n".format(args))
+                model_size = calculater_1(model, (3, args.base_size, args.base_size), device)
+                f.write("datasets: {}  \n".format(args.data_path))
+                f.write('flops:{:.2f}  params:{:.2f}  \n'.format(model_size[0], model_size[1]))
+            # train_info = f"[epoch: {epoch}]\n" \
+            #              f"train_loss: {mean_loss:.4f}\n" \
+            #              f"lr: {lr:.6f}\n" \
+            #              f"dice loss: {dice:.3f}\n"
+            # f.write(train_info + val_info + "\n\n")
 
         if args.save_best is True:
             if best_dice < dice:
@@ -175,9 +186,16 @@ def main(args):
         else:
             torch.save(checkpoints, log_dir+"/model_{}.pth".format(epoch))
 
+
+        # 保存训练过程中的信息
+        # save_logs(tb,epoch,)
+
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
     print("training time {}".format(total_time_str))
+
+# 保存训练过程中的信息
+# def save_logs():
 
 
 
@@ -192,9 +210,9 @@ def parse_args():
     parser.add_argument("--crop_size", default=256,  type=int, help="图片裁剪大小")
     parser.add_argument("--base_c", default=32, type=int, help="uent的基础通道数")
 
-    parser.add_argument("--data-path", default=r"D:\Files\_datasets\Dataset-reference\VOCdevkit_cap_c5_bin", help="DRIVE root")
+    parser.add_argument("--data-path", default=r"..\VOCdevkit_cap_c5_bin", help="VOC数据集路径")
     # exclude background
-    parser.add_argument("--num-classes", default=2, type=int)
+    parser.add_argument("--num-classes", default=1, type=int)
     parser.add_argument("--device", default="cuda", help="training device")
     parser.add_argument("--batch-size", default=1, type=int)
     parser.add_argument("--epochs", default=2, type=int, metavar="N",
