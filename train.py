@@ -43,7 +43,8 @@ def _load_dataset(args, batch_size):
                                                num_workers=num_workers,
                                                shuffle=True,
                                                pin_memory=True,
-                                               collate_fn=train_dataset.collate_fn)
+                                               collate_fn=train_dataset.collate_fn,
+                                               drop_last=True)
     val_loader = torch.utils.data.DataLoader(val_dataset,
                                              batch_size=1,
                                              num_workers=num_workers,
@@ -94,38 +95,6 @@ class SegmentationPresetEval:
 
     def __call__(self, img, target):
         return self.transforms(img, target)
-# class SegmentationPresetTrain:
-#     def __init__(self, base_size, crop_size, hflip_prob=0.5, vflip_prob=0.5,
-#                  mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)):
-#         min_size = int(0.5 * base_size)
-#         max_size = int(1.2 * base_size)
-#
-#         trans = [T.RandomResize(min_size, max_size)]
-#         if hflip_prob > 0:
-#             trans.append(T.RandomHorizontalFlip(hflip_prob))
-#         if vflip_prob > 0:
-#             trans.append(T.RandomVerticalFlip(vflip_prob))
-#         trans.extend([
-#             T.RandomCrop(crop_size),
-#             T.ToTensor(),
-#             T.Normalize(mean=mean, std=std),
-#         ])
-#         self.transforms = T.Compose(trans)
-#
-#     def __call__(self, img, target):
-#         return self.transforms(img, target)
-
-
-# class SegmentationPresetEval:
-#     def __init__(self, mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)):
-#         self.transforms = T.Compose([
-#             T.ToTensor(),
-#             T.Normalize(mean=mean, std=std),
-#         ])
-#
-#     def __call__(self, img, target):
-#         return self.transforms(img, target)
-
 
 def get_transform(args,train, mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)):
     base_size = args.base_size
@@ -270,7 +239,7 @@ def parse_args(model_name=None):
 
     parser.add_argument("--model_name", default=model_name, help="模型名称")
     parser.add_argument("--optimizer", default='adam',choices=['sgd','adam'] ,help="优化器")
-    parser.add_argument("--base_size", default=512, type=int, help="图片缩放大小")
+    parser.add_argument("--base_size", default=256, type=int, help="图片缩放大小")
     parser.add_argument("--crop_size", default=256,  type=int, help="图片裁剪大小")
     parser.add_argument("--base_c", default=32, type=int, help="uent的基础通道数")
 
