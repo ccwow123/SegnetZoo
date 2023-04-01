@@ -95,8 +95,7 @@ class Unet_EX(nn.Module):
 
     def __init__(self, in_ch=3, out_ch=2,
                  base_c: int = 32,
-                 block_type='unet',
-                 activation='sigmoid'):
+                 block_type='unet'):
         super().__init__()
         #          32, 64, 128, 256, 512
         filters = [base_c, base_c * 2, base_c * 4, base_c * 8, base_c * 16]
