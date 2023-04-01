@@ -64,6 +64,18 @@ def model_test(model,input_size,method, device='cuda'):
     Returns: None
 
     '''
+    from thop import profile
+    from torchsummary import summary
+    def calculater_1(model, input_size=(3, 512, 512), device='cuda'):
+        # model = torchvision.models.alexnet(pretrained=False)
+        # dummy_input = torch.randn(1, 3, 224, 224)
+        # dummy_input = torch.randn(1, *input_size).cuda()
+        dummy_input = torch.randn(1, *input_size).to(device)
+        flops, params = profile(model, (dummy_input,))
+        print('flops: %.2fG' % (flops / 1e9))
+        print('params: %.2fM' % (params / 1e6))
+        return flops / 1e9, params / 1e6
+
     model = model.to(device)
     if method == 'shape':
         input = torch.randn(input_size).to(device)

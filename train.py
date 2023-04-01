@@ -11,6 +11,7 @@ from utils import transforms as T
 
 from torch.utils.tensorboard import SummaryWriter
 from utils.mytools import calculater_1
+from src.unet_mod import Unet0
 def _create_folder(args):
     # 用来保存训练以及验证过程中信息
     if not os.path.exists("logs"):
@@ -90,15 +91,6 @@ def get_transform(args,train, mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.2
     else:
         return SegmentationPresetEval(mean=mean, std=std)
 
-
-def create_model(args,in_channels, num_classes, base_c=32):
-    if args.model_name == "unet":
-        model = UNet(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
-    else:
-        raise ValueError("wrong model name")
-    return model
-
-
 def main(args):
     #-----------------------初始化-----------------------
     log_dir, results_file=_create_folder(args)
@@ -156,7 +148,7 @@ def main(args):
             # 记录每个epoch对应的train_loss、lr以及验证集各指标
             train_log="train_loss: {:.4f}, lr: {:.6f}".format(mean_loss, lr)
             val_log=confmat
-            val_log["dice loss"]=1-dice
+            val_log["dice loss"]=format(1-dice, '.4f')
             print('--train_log:',train_log)
             print('--val_log:',val_log)
             f.write("Epoch: {}  \n".format(epoch))
@@ -209,12 +201,21 @@ def main(args):
     print("training time {}".format(total_time_str))
 
 
+# 建立模型
+def create_model(args,in_channels, num_classes, base_c=32):
+    if args.model_name == "unet":
+        model = UNet(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
+    elif args.model_name == "Unet0":
+        model = Unet0(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
+    else:
+        raise ValueError("wrong model name")
+    return model
 def parse_args():
     import argparse
     parser = argparse.ArgumentParser(description="pytorch unet training")
 
     parser.add_argument("--model_name", default="unet", help="模型名称")
-    parser.add_argument("--optimizer", default='sgd',choices=['sgd','adam'] ,help="优化器")
+    parser.add_argument("--optimizer", default='adam',choices=['sgd','adam'] ,help="优化器")
     parser.add_argument("--base_size", default=256, type=int, help="图片缩放大小")
     parser.add_argument("--crop_size", default=256,  type=int, help="图片裁剪大小")
     parser.add_argument("--base_c", default=32, type=int, help="uent的基础通道数")
@@ -227,7 +228,7 @@ def parse_args():
     parser.add_argument("--epochs", default=20, type=int, metavar="N",
                         help="number of total epochs to train")
 
-    parser.add_argument('--lr', default=0.01, type=float, help='initial learning rate')
+    parser.add_argument('--lr', default=1e-4, type=float, help='initial learning rate')
     parser.add_argument('--momentum', default=0.9, type=float, metavar='M',
                         help='momentum')
     parser.add_argument('--weight-decay', default=1e-4, type=float,
