@@ -23,6 +23,30 @@ def _create_folder(args):
     # self.results_file = log_dir + "/{}_results{}.txt".format(self.model_name, time_str)
     print("当前进行训练: {}".format(log_dir))
     return log_dir, results_file
+def _load_dataset(args, batch_size):
+    train_dataset = VOCSegmentation(args.data_path,
+                                    year="2007",
+                                    transforms=get_transform(args,train=True),
+                                    txt_name="train.txt")
+    # VOCdevkit -> VOC2012 -> ImageSets -> Segmentation -> val.txt
+    val_dataset = VOCSegmentation(args.data_path,
+                                  year="2007",
+                                  transforms=get_transform(args,train=False),
+                                  txt_name="val.txt")
+    num_workers = min([os.cpu_count(), batch_size if batch_size > 1 else 0, 8])
+    train_loader = torch.utils.data.DataLoader(train_dataset,
+                                               batch_size=batch_size,
+                                               num_workers=num_workers,
+                                               shuffle=True,
+                                               pin_memory=True,
+                                               collate_fn=train_dataset.collate_fn)
+    val_loader = torch.utils.data.DataLoader(val_dataset,
+                                             batch_size=1,
+                                             num_workers=num_workers,
+                                             pin_memory=True,
+                                             collate_fn=val_dataset.collate_fn)
+    return train_loader, val_loader
+
 class SegmentationPresetTrain:
     def __init__(self, base_size, crop_size, hflip_prob=0.5, vflip_prob=0.5,
                  mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)):
@@ -56,9 +80,9 @@ class SegmentationPresetEval:
         return self.transforms(img, target)
 
 
-def get_transform(train, mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)):
-    base_size = 64
-    crop_size = 60
+def get_transform(args,train, mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)):
+    base_size = args.base_size
+    crop_size = args.crop_size
 
     if train:
         return SegmentationPresetTrain(base_size, crop_size, mean=mean, std=std)
@@ -66,8 +90,11 @@ def get_transform(train, mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)):
         return SegmentationPresetEval(mean=mean, std=std)
 
 
-def create_model(num_classes):
-    model = UNet(in_channels=3, num_classes=num_classes, base_c=32)
+def create_model(args,in_channels, num_classes, base_c=32):
+    if args.model_name == "unet":
+        model = UNet(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
+    else:
+        raise ValueError("wrong model name")
     return model
 
 
@@ -78,14 +105,12 @@ def main(args):
     batch_size = args.batch_size
     # segmentation nun_classes + background
     num_classes = args.num_classes + 1
-    # using compute_mean_std.py
-    mean = (0.709, 0.381, 0.224)
-    std = (0.127, 0.079, 0.043)
+
 
     #-----------------------加载数据-----------------------
     train_loader, val_loader = _load_dataset(args, batch_size)
     #-----------------------创建模型-----------------------
-    model = create_model(num_classes=num_classes).to(device)
+    model = create_model(args,in_channels=3,num_classes=num_classes,base_c=args.base_c).to(device)
     #-----------------------创建优化器-----------------------
     params_to_optimize = [p for p in model.parameters() if p.requires_grad]
     if args.optimizer == "sgd":
@@ -98,6 +123,8 @@ def main(args):
             params_to_optimize,
             lr=args.lr, weight_decay=args.weight_decay
         )
+    else:
+        raise ValueError("wrong optimizer name")
     #-----------------------创建学习率更新策略-----------------------
     scaler = torch.cuda.amp.GradScaler() if args.amp else None# 混合精度训练
     # 创建学习率更新策略，这里是每个step更新一次(不是每个epoch)
@@ -155,37 +182,17 @@ def main(args):
     print("training time {}".format(total_time_str))
 
 
-def _load_dataset(args, batch_size):
-    train_dataset = VOCSegmentation(args.data_path,
-                                    year="2007",
-                                    transforms=get_transform(train=True),
-                                    txt_name="train.txt")
-    # VOCdevkit -> VOC2012 -> ImageSets -> Segmentation -> val.txt
-    val_dataset = VOCSegmentation(args.data_path,
-                                  year="2007",
-                                  transforms=get_transform(train=False),
-                                  txt_name="val.txt")
-    num_workers = min([os.cpu_count(), batch_size if batch_size > 1 else 0, 8])
-    train_loader = torch.utils.data.DataLoader(train_dataset,
-                                               batch_size=batch_size,
-                                               num_workers=num_workers,
-                                               shuffle=True,
-                                               pin_memory=True,
-                                               collate_fn=train_dataset.collate_fn)
-    val_loader = torch.utils.data.DataLoader(val_dataset,
-                                             batch_size=1,
-                                             num_workers=num_workers,
-                                             pin_memory=True,
-                                             collate_fn=val_dataset.collate_fn)
-    return train_loader, val_loader
 
 
 def parse_args():
     import argparse
     parser = argparse.ArgumentParser(description="pytorch unet training")
 
-    parser.add_argument("--model_name", default="uent", help="模型名称")
+    parser.add_argument("--model_name", default="unet", help="模型名称")
     parser.add_argument("--optimizer", default='sgd',choices=['sgd','adam'] ,help="优化器")
+    parser.add_argument("--base_size", default=256, type=int, help="图片缩放大小")
+    parser.add_argument("--crop_size", default=256,  type=int, help="图片裁剪大小")
+    parser.add_argument("--base_c", default=32, type=int, help="uent的基础通道数")
 
     parser.add_argument("--data-path", default=r"D:\Files\_datasets\Dataset-reference\VOCdevkit_cap_c5_bin", help="DRIVE root")
     # exclude background
