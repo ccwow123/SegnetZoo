@@ -1,6 +1,8 @@
 from collections import defaultdict, deque
 import datetime
 import time
+
+import numpy as np
 import torch
 import torch.nn.functional as F
 import torch.distributed as dist
@@ -123,6 +125,121 @@ class ConfusionMatrix(object):
                 ['{:.1f}'.format(i) for i in (acc * 100).tolist()],
                 ['{:.1f}'.format(i) for i in (iu * 100).tolist()],
                 iu.mean().item() * 100)
+# 新建混淆矩阵，用于计算各种指标
+class SegmentationMetric(object):
+    def __init__(self, numClass):
+        self.numClass = numClass
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.confusionMatrix = torch.zeros((numClass, numClass), dtype=torch.int64, device=device)  # 混淆矩阵（空）
+
+    def compute(self):
+        output ={
+            'pa': self.pixelAccuracy(),
+            'miou': self.meanIntersectionOverUnion(),
+            'fwiou': self.Frequency_Weighted_Intersection_over_Union(),
+            'cpa': self.classPixelAccuracy(),
+            'mpa': self.meanPixelAccuracy(),
+            'iou': self.IntersectionOverUnion(),
+
+        }
+        for key in output.keys():
+            output[key] = output[key].cpu().numpy() * 100
+            output[key] = np.round(output[key], 2)
+        return output
+
+    def pixelAccuracy(self):
+        # return all class overall pixel accuracy 正确的像素占总像素的比例
+        #  PA = acc = (TP + TN) / (TP + TN + FP + TN)
+        acc = torch.diag(self.confusionMatrix).sum() / self.confusionMatrix.sum()
+        return acc
+
+    def classPixelAccuracy(self):
+        # return each category pixel accuracy(A more accurate way to call it precision)
+        # acc = (TP) / TP + FP
+        classAcc = torch.diag(self.confusionMatrix) / self.confusionMatrix.sum(axis=1)
+        return classAcc  # 返回的是一个列表值，如：[0.90, 0.80, 0.96]，表示类别1 2 3各类别的预测准确率
+
+    def meanPixelAccuracy(self):
+        """
+        Mean Pixel Accuracy(MPA，均像素精度)：是PA的一种简单提升，计算每个类内被正确分类像素数的比例，之后求所有类的平均。
+        :return:
+        """
+        classAcc = self.classPixelAccuracy()
+        meanAcc = classAcc[classAcc < float('inf')].mean() # np.nanmean 求平均值，nan表示遇到Nan类型，其值取为0
+        return meanAcc  # 返回单个值，如：np.nanmean([0.90, 0.80, 0.96, nan, nan]) = (0.90 + 0.80 + 0.96） / 3 =  0.89
+
+    def IntersectionOverUnion(self):
+        # Intersection = TP Union = TP + FP + FN
+        # IoU = TP / (TP + FP + FN)
+        intersection = torch.diag(self.confusionMatrix)  # 取对角元素的值，返回列表
+        union = torch.sum(self.confusionMatrix, axis=1) + torch.sum(self.confusionMatrix, axis=0) - torch.diag(
+            self.confusionMatrix)  # axis = 1表示混淆矩阵行的值，返回列表； axis = 0表示取混淆矩阵列的值，返回列表
+        IoU = intersection / union  # 返回列表，其值为各个类别的IoU
+        return IoU
+    # 计算平均IoU
+    def meanIntersectionOverUnion(self):
+        IoU = self.IntersectionOverUnion()
+        mIoU = IoU[IoU<float('inf')].mean()# 求各类别IoU的平均
+        return mIoU
+    def recall(self):
+        # recall = TP / (TP + FN)
+        recall = torch.diag(self.confusionMatrix) / torch.sum(self.confusionMatrix, axis=1)
+        return recall
+    def genConfusionMatrix(self, imgPredict, imgLabel, ignore_labels):  #
+        """
+        同FCN中score.py的fast_hist()函数,计算混淆矩阵
+        :param imgPredict:
+        :param imgLabel:
+        :return: 混淆矩阵
+        # mask返回的是一个布尔型数据
+        # imgLabel = tensor([[0, 1, 255],
+        #  					 [1, 1, 2]])
+        # mask = tensor([[ True,  True, False],
+        #                [ True,  True,  True]])
+
+        # 利用mask只返回True对应的元素，用于计算
+        """
+        # remove classes from unlabeled pixels in gt image and predict
+        mask = (imgLabel >= 0) & (imgLabel < self.numClass)
+        for IgLabel in ignore_labels:
+            mask &= (imgLabel != IgLabel)
+        label = self.numClass * imgLabel[mask] + imgPredict[mask]
+        count = torch.bincount(label, minlength=self.numClass ** 2)
+        confusionMatrix = count.view(self.numClass, self.numClass)
+        # print(confusionMatrix)
+        return confusionMatrix
+
+
+
+    def Frequency_Weighted_Intersection_over_Union(self):
+        """
+        FWIoU，频权交并比:为MIoU的一种提升，这种方法根据每个类出现的频率为其设置权重。
+        FWIOU =     [(TP+FN)/(TP+FP+TN+FN)] *[TP / (TP + FP + FN)]
+        """
+        freq = torch.sum(self.confusionMatrix, axis=1) / torch.sum(self.confusionMatrix)
+        iu = torch.diag(self.confusionMatrix) / (
+                torch.sum(self.confusionMatrix, axis=1) + torch.sum(self.confusionMatrix, axis=0) -
+                torch.diag(self.confusionMatrix))
+        FWIoU = (freq[freq > 0] * iu[freq > 0]).sum()
+        return FWIoU
+
+    def update(self, imgPredict, imgLabel, ignore_labels=[255]):
+        '''
+
+        Args:
+            imgPredict: 网络输出图片
+            imgLabel:  ground true图片
+            ignore_labels: 要忽略的类别
+
+        Returns:
+
+        '''
+        assert imgPredict.shape == imgLabel.shape
+        self.confusionMatrix += self.genConfusionMatrix(imgPredict, imgLabel, ignore_labels)  # 得到混淆矩阵
+        return self.confusionMatrix
+
+    def reset(self):
+        self.confusionMatrix = torch.zeros((self.numClass, self.numClass))
 
 
 class DiceCoefficient(object):

@@ -105,8 +105,6 @@ def main(args):
     batch_size = args.batch_size
     # segmentation nun_classes + background
     num_classes = args.num_classes + 1
-
-
     #-----------------------加载数据-----------------------
     train_loader, val_loader = _load_dataset(args, batch_size)
     #-----------------------创建模型-----------------------
@@ -148,7 +146,7 @@ def main(args):
         confmat, dice = evaluate(model, val_loader, device=device, num_classes=num_classes)
         val_info = str(confmat)
         print(val_info)
-        print(f"dice coefficient: {dice:.3f}")
+        print(f"dice loss: {1-dice:.3f}")
         # write into txt
         with open(results_file, "a") as f:
             # 记录每个epoch对应的train_loss、lr以及验证集各指标

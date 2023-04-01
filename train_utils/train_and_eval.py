@@ -22,7 +22,8 @@ def criterion(inputs, target, loss_weight=None, num_classes: int = 2, dice: bool
 
 def evaluate(model, data_loader, device, num_classes):
     model.eval()
-    confmat = utils.ConfusionMatrix(num_classes)
+    # confmat = utils.ConfusionMatrix(num_classes)#原版混淆矩阵
+    confmat = utils.SegmentationMetric(num_classes)
     dice = utils.DiceCoefficient(num_classes=num_classes, ignore_index=255)
     metric_logger = utils.MetricLogger(delimiter="  ")
     header = 'Test:'
@@ -31,14 +32,17 @@ def evaluate(model, data_loader, device, num_classes):
             image, target = image.to(device), target.to(device)
             output = model(image)
             output = output['out']
+            # 原版混淆矩阵
+            # confmat.update(target.flatten(), output.argmax(1).flatten())
 
-            confmat.update(target.flatten(), output.argmax(1).flatten())
+            confmat.update(target.flatten(), output.argmax(1).flatten())  # 这里要修夫debug试试
+            confmat_output = confmat.compute()
             dice.update(output, target)
-
-        confmat.reduce_from_all_processes()
+        # confmat.reduce_from_all_processes()# 原版混淆矩阵
         dice.reduce_from_all_processes()
 
-    return confmat, dice.value.item()
+    # return confmat, dice.value.item()# 原版混淆矩阵
+    return confmat_output, dice.value.item()
 
 
 def train_one_epoch(model, optimizer, data_loader, device, epoch, num_classes,
