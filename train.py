@@ -175,6 +175,7 @@ def main(args):
             if epoch == args.epochs - 1:
                 # f.write("args: {}  \n".format(args))
                 model_size = calculater_1(model, (3, args.base_size, args.base_size), device)
+                f.write("model_name: -{}-  \n".format(args.model_name))
                 f.write("datasets: {}  \n".format(args.data_path))
                 f.write('flops:{:.2f}  params:{:.2f}  \n'.format(model_size[0], model_size[1]))
             # train_info = f"[epoch: {epoch}]\n" \
@@ -234,8 +235,8 @@ def parse_args(model_name=None):
 
     parser.add_argument("--model_name", default=model_name, help="模型名称")
     parser.add_argument("--optimizer", default='adam',choices=['sgd','adam'] ,help="优化器")
-    parser.add_argument("--base_size", default=256, type=int, help="图片缩放大小")
-    parser.add_argument("--crop_size", default=256,  type=int, help="图片裁剪大小")
+    parser.add_argument("--base_size", default=64, type=int, help="图片缩放大小")
+    parser.add_argument("--crop_size", default=64,  type=int, help="图片裁剪大小")
     parser.add_argument("--base_c", default=32, type=int, help="uent的基础通道数")
 
     parser.add_argument("--data-path", default=r"..\VOCdevkit_cap_c5_bin", help="VOC数据集路径")
@@ -243,7 +244,7 @@ def parse_args(model_name=None):
     parser.add_argument("--num-classes", default=1, type=int)
     parser.add_argument("--device", default="cuda", help="training device")
     parser.add_argument("--batch-size", default=1, type=int)
-    parser.add_argument("--epochs", default=20, type=int, metavar="N",
+    parser.add_argument("--epochs", default=1, type=int, metavar="N",
                         help="number of total epochs to train")
 
     parser.add_argument('--lr', default=1e-4, type=float, help='initial learning rate')
@@ -268,5 +269,5 @@ def parse_args(model_name=None):
 # tensorboard --logdir logs
 # http://localhost:6006/
 if __name__ == '__main__':
-    args = parse_args()
+    args = parse_args('unet')
     main(args)
