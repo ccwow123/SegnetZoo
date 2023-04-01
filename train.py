@@ -88,10 +88,16 @@ def main(args):
     model = create_model(num_classes=num_classes).to(device)
     #-----------------------创建优化器-----------------------
     params_to_optimize = [p for p in model.parameters() if p.requires_grad]
-    optimizer = torch.optim.SGD(
-        params_to_optimize,
-        lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay
-    )
+    if args.optimizer == "sgd":
+        optimizer = torch.optim.SGD(
+            params_to_optimize,
+            lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay
+        )
+    elif args.optimizer == "adam":
+        optimizer = torch.optim.Adam(
+            params_to_optimize,
+            lr=args.lr, weight_decay=args.weight_decay
+        )
     #-----------------------创建学习率更新策略-----------------------
     scaler = torch.cuda.amp.GradScaler() if args.amp else None# 混合精度训练
     # 创建学习率更新策略，这里是每个step更新一次(不是每个epoch)
@@ -179,19 +185,20 @@ def parse_args():
     parser = argparse.ArgumentParser(description="pytorch unet training")
 
     parser.add_argument("--model_name", default="uent", help="模型名称")
+    parser.add_argument("--optimizer", default='sgd',choices=['sgd','adam'] ,help="优化器")
 
     parser.add_argument("--data-path", default=r"D:\Files\_datasets\Dataset-reference\VOCdevkit_cap_c5_bin", help="DRIVE root")
     # exclude background
-    parser.add_argument("--num-classes", default=1, type=int)
+    parser.add_argument("--num-classes", default=2, type=int)
     parser.add_argument("--device", default="cuda", help="training device")
-    parser.add_argument("-b", "--batch-size", default=1, type=int)
+    parser.add_argument("--batch-size", default=1, type=int)
     parser.add_argument("--epochs", default=2, type=int, metavar="N",
                         help="number of total epochs to train")
 
     parser.add_argument('--lr', default=0.01, type=float, help='initial learning rate')
     parser.add_argument('--momentum', default=0.9, type=float, metavar='M',
                         help='momentum')
-    parser.add_argument('--wd', '--weight-decay', default=1e-4, type=float,
+    parser.add_argument('--weight-decay', default=1e-4, type=float,
                         metavar='W', help='weight decay (default: 1e-4)',
                         dest='weight_decay')
     parser.add_argument('--print-freq', default=20, type=int, help='print frequency')
