@@ -4,7 +4,7 @@ import train_utils.distributed_utils as utils
 from .dice_coefficient_loss import dice_loss, build_target
 
 
-def criterion(inputs, target, loss_weight=None, num_classes: int = 2, dice: bool = True, ignore_index: int = -100):
+def criterion0(inputs, target, loss_weight=None, num_classes: int = 2, dice: bool = True, ignore_index: int = -100):
     losses = {}
     for name, x in inputs.items():
         # 忽略target中值为255的像素，255的像素是目标边缘或者padding填充
@@ -18,6 +18,14 @@ def criterion(inputs, target, loss_weight=None, num_classes: int = 2, dice: bool
         return losses['out']
 
     return losses['out'] + 0.5 * losses['aux']
+def criterion(inputs, target, loss_weight=None, num_classes: int = 2, dice: bool = True, ignore_index: int = -100):
+        x = inputs
+        # 忽略target中值为255的像素，255的像素是目标边缘或者padding填充
+        loss = nn.functional.cross_entropy(x, target, ignore_index=ignore_index, weight=loss_weight)
+        if dice is True:
+            dice_target = build_target(target, num_classes, ignore_index)
+            loss += dice_loss(x, dice_target, multiclass=True, ignore_index=ignore_index)
+        return loss
 
 
 def evaluate(model, data_loader, device, num_classes):
@@ -31,7 +39,7 @@ def evaluate(model, data_loader, device, num_classes):
         for image, target in metric_logger.log_every(data_loader, 100, header):
             image, target = image.to(device), target.to(device)
             output = model(image)
-            output = output['out']
+            # output = output['out']
             # 原版混淆矩阵
             # confmat.update(target.flatten(), output.argmax(1).flatten())
 

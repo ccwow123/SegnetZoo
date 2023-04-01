@@ -93,4 +93,5 @@ class UNet(nn.Module):
         x = self.up4(x, x1)
         logits = self.out_conv(x)
 
-        return {"out": logits}
+        return logits
+        # return {"out": logits}

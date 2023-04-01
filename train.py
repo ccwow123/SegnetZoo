@@ -172,6 +172,8 @@ def main(args):
         tb.add_scalar("val/dice loss", 1-dice, epoch)
         tb.add_scalar("val/miou", confmat["miou"], epoch)
         tb.add_scalar("val/acc", confmat["pa"], epoch)
+        # 保存网路结构
+        tb.add_graph(model, torch.rand(1, 3, args.base_size, args.base_size).to(device))
         # -----------------------保存模型-----------------------
         if args.save_best is True:
             if best_dice < dice:
