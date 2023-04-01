@@ -166,38 +166,38 @@ def main(args):
             #              f"lr: {lr:.6f}\n" \
             #              f"dice loss: {dice:.3f}\n"
             # f.write(train_info + val_info + "\n\n")
-
+        # -----------------------保存tensorboard-----------------------
+        tb.add_scalar("train/loss", mean_loss, epoch)
+        tb.add_scalar("train/lr", lr, epoch)
+        tb.add_scalar("val/dice loss", 1-dice, epoch)
+        tb.add_scalar("val/miou", confmat["miou"], epoch)
+        # -----------------------保存模型-----------------------
         if args.save_best is True:
             if best_dice < dice:
                 best_dice = dice
             else:
                 continue
-
+        # 模型结构、优化器、学习率更新策略、epoch、参数
         checkpoints = {"model": model.state_dict(),
                      "optimizer": optimizer.state_dict(),
                      "lr_scheduler": lr_scheduler.state_dict(),
                      "epoch": epoch,
-                     "args": args}
+                     }
+        # 混合精度训练
         if args.amp:
             checkpoints["scaler"] = scaler.state_dict()
-
+        # 保存模型
         if args.save_best is True:
             torch.save(checkpoints, log_dir+"/best_model.pth")
         else:
             torch.save(checkpoints, log_dir+"/model_{}.pth".format(epoch))
 
 
-        # 保存训练过程中的信息
-        # save_logs(tb,epoch,)
 
+    #-----------------------训练结束-----------------------
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
     print("training time {}".format(total_time_str))
-
-# 保存训练过程中的信息
-# def save_logs():
-
-
 
 
 def parse_args():
