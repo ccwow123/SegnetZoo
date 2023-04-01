@@ -112,6 +112,12 @@ def main(args):
     #-----------------------创建模型-----------------------
     model = create_model(args,in_channels=3,num_classes=num_classes,base_c=args.base_c).to(device)
     #-----------------------创建优化器-----------------------
+    if num_classes == 2:
+        # 设置cross_entropy中背景和前景的loss权重(根据自己的数据集进行设置)
+        loss_weight = torch.as_tensor([1.0, 2.0], device=device)
+    else:
+        loss_weight = None
+    loss_fn = torch.nn.CrossEntropyLoss(weight=loss_weight,ignore_index=255)
     params_to_optimize = [p for p in model.parameters() if p.requires_grad]
     if args.optimizer == "sgd":
         optimizer = torch.optim.SGD(
@@ -142,13 +148,13 @@ def main(args):
     best_dice = 0.
     start_time = time.time()
     for epoch in range(args.start_epoch, args.epochs):
-        mean_loss, lr = train_one_epoch(model, optimizer, train_loader, device, epoch, num_classes,
+        mean_loss, lr = train_one_epoch(model,loss_fn, optimizer, train_loader, device, epoch, num_classes,
                                         lr_scheduler=lr_scheduler, print_freq=args.print_freq, scaler=scaler)
         confmat, dice = evaluate(model, val_loader, device=device, num_classes=num_classes)
         # -----------------------保存日志-----------------------
         with open(results_file, "a") as f:
             # 记录每个epoch对应的train_loss、lr以及验证集各指标
-            train_log="train_loss: {:.4f}, lr: {:.6f}".format(epoch, mean_loss, lr)
+            train_log="train_loss: {:.4f}, lr: {:.6f}".format(mean_loss, lr)
             val_log=confmat
             val_log["dice loss"]=1-dice
             print('--train_log:',train_log)
@@ -218,7 +224,7 @@ def parse_args():
     parser.add_argument("--num-classes", default=1, type=int)
     parser.add_argument("--device", default="cuda", help="training device")
     parser.add_argument("--batch-size", default=1, type=int)
-    parser.add_argument("--epochs", default=2, type=int, metavar="N",
+    parser.add_argument("--epochs", default=20, type=int, metavar="N",
                         help="number of total epochs to train")
 
     parser.add_argument('--lr', default=0.01, type=float, help='initial learning rate')

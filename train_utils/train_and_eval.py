@@ -18,10 +18,9 @@ def criterion0(inputs, target, loss_weight=None, num_classes: int = 2, dice: boo
         return losses['out']
 
     return losses['out'] + 0.5 * losses['aux']
-def criterion(inputs, target, loss_weight=None, num_classes: int = 2, dice: bool = True, ignore_index: int = -100):
-        x = inputs
+def criterion(x, target,loss_fn, loss_weight=None, num_classes: int = 2, dice: bool = False, ignore_index: int = -100):
         # 忽略target中值为255的像素，255的像素是目标边缘或者padding填充
-        loss = nn.functional.cross_entropy(x, target, ignore_index=ignore_index, weight=loss_weight)
+        loss = loss_fn(x, target)
         if dice is True:
             dice_target = build_target(target, num_classes, ignore_index)
             loss += dice_loss(x, dice_target, multiclass=True, ignore_index=ignore_index)
@@ -53,7 +52,7 @@ def evaluate(model, data_loader, device, num_classes):
     return confmat_output, dice.value.item()
 
 
-def train_one_epoch(model, optimizer, data_loader, device, epoch, num_classes,
+def train_one_epoch(model,loss_fn, optimizer, data_loader, device, epoch, num_classes,
                     lr_scheduler, print_freq=10, scaler=None):
     model.train()
     metric_logger = utils.MetricLogger(delimiter="  ")
@@ -70,7 +69,9 @@ def train_one_epoch(model, optimizer, data_loader, device, epoch, num_classes,
         image, target = image.to(device), target.to(device)
         with torch.cuda.amp.autocast(enabled=scaler is not None):
             output = model(image)
-            loss = criterion(output, target, loss_weight, num_classes=num_classes, ignore_index=255)
+            # loss = loss_fn.to(device)(output, target)
+            # loss = loss_fn(output, target)
+            loss = criterion(output, target, loss_fn,loss_weight, num_classes=num_classes, ignore_index=255)
 
         optimizer.zero_grad()
         if scaler is not None:
@@ -84,7 +85,7 @@ def train_one_epoch(model, optimizer, data_loader, device, epoch, num_classes,
         lr_scheduler.step()
 
         lr = optimizer.param_groups[0]["lr"]
-        metric_logger.update(loss=loss.item(), lr=lr)
+        metric_logger.update(loss=loss, lr=lr)
 
     return metric_logger.meters["loss"].global_avg, lr
 
