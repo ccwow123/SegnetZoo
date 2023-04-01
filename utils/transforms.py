@@ -104,3 +104,15 @@ class Normalize(object):
     def __call__(self, image, target):
         image = F.normalize(image, mean=self.mean, std=self.std)
         return image, target
+# 改变尺寸
+class Resize(object):
+    def __init__(self, size, resize_mask: bool = True):
+        self.size = [size,size]  # [h, w]
+        self.resize_mask = resize_mask
+
+    def __call__(self, image, target=None):
+        image = F.resize(image, self.size)
+        if self.resize_mask is True:
+            target = F.resize(target, self.size)
+
+        return image, target

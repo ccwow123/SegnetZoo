@@ -75,13 +75,13 @@ class up_conv(nn.Module):
 
     def forward(self, x1,x2):
         x1 = self.up(x1)
-        # [N, C, H, W]
-        diff_y = x2.size()[2] - x1.size()[2]
-        diff_x = x2.size()[3] - x1.size()[3]
-
-        # padding_left, padding_right, padding_top, padding_bottom
-        x1 = F.pad(x1, [diff_x // 2, diff_x - diff_x // 2,
-                        diff_y // 2, diff_y - diff_y // 2])
+        # # [N, C, H, W]
+        # diff_y = x2.size()[2] - x1.size()[2]
+        # diff_x = x2.size()[3] - x1.size()[3]
+        #
+        # # padding_left, padding_right, padding_top, padding_bottom
+        # x1 = F.pad(x1, [diff_x // 2, diff_x - diff_x // 2,
+        #                 diff_y // 2, diff_y - diff_y // 2])
 
         x = torch.cat([x2, x1], dim=1)
         x = self.conv(x)

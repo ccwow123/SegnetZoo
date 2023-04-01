@@ -36,7 +36,8 @@ def _load_dataset(args, batch_size):
                                   year="2007",
                                   transforms=get_transform(args,train=False),
                                   txt_name="val.txt")
-    num_workers = min([os.cpu_count(), batch_size if batch_size > 1 else 0, 8])
+    num_workers =0
+    # num_workers = min([os.cpu_count(), batch_size if batch_size > 1 else 0, 8])
     train_loader = torch.utils.data.DataLoader(train_dataset,
                                                batch_size=batch_size,
                                                num_workers=num_workers,
@@ -67,19 +68,15 @@ def initialize_weights(model):
             m.weight.data.fill_(1)
             m.bias.data.fill_(0)
     return model
+# 数据集预处理
 class SegmentationPresetTrain:
-    def __init__(self, base_size, crop_size, hflip_prob=0.5, vflip_prob=0.5,
-                 mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)):
-        min_size = int(0.5 * base_size)
-        max_size = int(1.2 * base_size)
-
-        trans = [T.RandomResize(min_size, max_size)]
+    def __init__(self, base_size, crop_size, hflip_prob=0.5, mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)):
+        trans = [T.Resize(base_size)]
+        # 以给定的概率随机水平翻转
         if hflip_prob > 0:
             trans.append(T.RandomHorizontalFlip(hflip_prob))
-        if vflip_prob > 0:
-            trans.append(T.RandomVerticalFlip(vflip_prob))
         trans.extend([
-            T.RandomCrop(crop_size),
+            T.CenterCrop(crop_size),
             T.ToTensor(),
             T.Normalize(mean=mean, std=std),
         ])
@@ -87,17 +84,47 @@ class SegmentationPresetTrain:
 
     def __call__(self, img, target):
         return self.transforms(img, target)
-
-
 class SegmentationPresetEval:
-    def __init__(self, mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)):
+    def __init__(self, base_size, mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)):
         self.transforms = T.Compose([
+            T.Resize(base_size),
             T.ToTensor(),
             T.Normalize(mean=mean, std=std),
         ])
 
     def __call__(self, img, target):
         return self.transforms(img, target)
+# class SegmentationPresetTrain:
+#     def __init__(self, base_size, crop_size, hflip_prob=0.5, vflip_prob=0.5,
+#                  mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)):
+#         min_size = int(0.5 * base_size)
+#         max_size = int(1.2 * base_size)
+#
+#         trans = [T.RandomResize(min_size, max_size)]
+#         if hflip_prob > 0:
+#             trans.append(T.RandomHorizontalFlip(hflip_prob))
+#         if vflip_prob > 0:
+#             trans.append(T.RandomVerticalFlip(vflip_prob))
+#         trans.extend([
+#             T.RandomCrop(crop_size),
+#             T.ToTensor(),
+#             T.Normalize(mean=mean, std=std),
+#         ])
+#         self.transforms = T.Compose(trans)
+#
+#     def __call__(self, img, target):
+#         return self.transforms(img, target)
+
+
+# class SegmentationPresetEval:
+#     def __init__(self, mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)):
+#         self.transforms = T.Compose([
+#             T.ToTensor(),
+#             T.Normalize(mean=mean, std=std),
+#         ])
+#
+#     def __call__(self, img, target):
+#         return self.transforms(img, target)
 
 
 def get_transform(args,train, mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)):
@@ -107,7 +134,7 @@ def get_transform(args,train, mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.2
     if train:
         return SegmentationPresetTrain(base_size, crop_size, mean=mean, std=std)
     else:
-        return SegmentationPresetEval(mean=mean, std=std)
+        return SegmentationPresetEval(base_size,mean=mean, std=std)
 
 def main(args):
     #-----------------------初始化-----------------------
@@ -243,7 +270,7 @@ def parse_args(model_name=None):
 
     parser.add_argument("--model_name", default=model_name, help="模型名称")
     parser.add_argument("--optimizer", default='adam',choices=['sgd','adam'] ,help="优化器")
-    parser.add_argument("--base_size", default=256, type=int, help="图片缩放大小")
+    parser.add_argument("--base_size", default=512, type=int, help="图片缩放大小")
     parser.add_argument("--crop_size", default=256,  type=int, help="图片裁剪大小")
     parser.add_argument("--base_c", default=32, type=int, help="uent的基础通道数")
 
@@ -251,7 +278,7 @@ def parse_args(model_name=None):
     # exclude background
     parser.add_argument("--num-classes", default=1, type=int)
     parser.add_argument("--device", default="cuda", help="training device")
-    parser.add_argument("--batch-size", default=1, type=int)
+    parser.add_argument("--batch-size", default=2, type=int)
     parser.add_argument("--epochs", default=1, type=int, metavar="N",
                         help="number of total epochs to train")
 
