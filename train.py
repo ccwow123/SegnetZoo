@@ -3,6 +3,7 @@ import time
 import datetime
 
 import torch
+from torch import nn
 
 from src import UNet
 from train_utils import train_one_epoch, evaluate, create_lr_scheduler
@@ -49,6 +50,23 @@ def _load_dataset(args, batch_size):
                                              collate_fn=val_dataset.collate_fn)
     return train_loader, val_loader
 
+
+def initialize_weights(model):
+    for m in model.modules():
+        # 判断是否属于Conv2d
+        if isinstance(m, nn.Conv2d):
+            torch.nn.init.xavier_normal_(m.weight.data)
+            # 判断是否有偏置
+            if m.bias is not None:
+                torch.nn.init.constant_(m.bias.data, 0.3)
+        elif isinstance(m, nn.Linear):
+            torch.nn.init.normal_(m.weight.data, 0.1)
+            if m.bias is not None:
+                torch.nn.init.zeros_(m.bias.data)
+        elif isinstance(m, nn.BatchNorm2d):
+            m.weight.data.fill_(1)
+            m.bias.data.fill_(0)
+    return model
 class SegmentationPresetTrain:
     def __init__(self, base_size, crop_size, hflip_prob=0.5, vflip_prob=0.5,
                  mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)):
@@ -209,12 +227,12 @@ def create_model(args,in_channels, num_classes, base_c=32):
         model = Unet0(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
     else:
         raise ValueError("wrong model name")
-    return model
+    return initialize_weights(model)
 def parse_args():
     import argparse
     parser = argparse.ArgumentParser(description="pytorch unet training")
 
-    parser.add_argument("--model_name", default="unet", help="模型名称")
+    parser.add_argument("--model_name", default="Unet0", help="模型名称")
     parser.add_argument("--optimizer", default='adam',choices=['sgd','adam'] ,help="优化器")
     parser.add_argument("--base_size", default=256, type=int, help="图片缩放大小")
     parser.add_argument("--crop_size", default=256,  type=int, help="图片裁剪大小")
