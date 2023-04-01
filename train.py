@@ -12,7 +12,7 @@ from utils import transforms as T
 
 from torch.utils.tensorboard import SummaryWriter
 from utils.mytools import calculater_1
-from src.unet_mod import Unet0
+from src.unet_mod import *
 def _create_folder(args):
     # 用来保存训练以及验证过程中信息
     if not os.path.exists("logs"):
@@ -226,6 +226,8 @@ def create_model(args,in_channels, num_classes, base_c=32):
         model = UNet(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
     elif args.model_name == "Unet0":
         model = Unet0(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
+    elif args.model_name == "Unet_c3g":
+        model = Unet_c3g(in_channels, num_classes, base_c=base_c)
     else:
         raise ValueError("wrong model name")
     return initialize_weights(model)
@@ -235,8 +237,8 @@ def parse_args(model_name=None):
 
     parser.add_argument("--model_name", default=model_name, help="模型名称")
     parser.add_argument("--optimizer", default='adam',choices=['sgd','adam'] ,help="优化器")
-    parser.add_argument("--base_size", default=64, type=int, help="图片缩放大小")
-    parser.add_argument("--crop_size", default=64,  type=int, help="图片裁剪大小")
+    parser.add_argument("--base_size", default=256, type=int, help="图片缩放大小")
+    parser.add_argument("--crop_size", default=256,  type=int, help="图片裁剪大小")
     parser.add_argument("--base_c", default=32, type=int, help="uent的基础通道数")
 
     parser.add_argument("--data-path", default=r"..\VOCdevkit_cap_c5_bin", help="VOC数据集路径")
@@ -269,5 +271,5 @@ def parse_args(model_name=None):
 # tensorboard --logdir logs
 # http://localhost:6006/
 if __name__ == '__main__':
-    args = parse_args('unet')
+    args = parse_args('Unet_c3g')
     main(args)
