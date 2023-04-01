@@ -232,6 +232,8 @@ def create_model(args,in_channels, num_classes, base_c=32):
         model = Unet_c3g(in_channels, num_classes, base_c=base_c,block='c3')
     elif args.model_name == "Unet_res":
         model = Unet_EX(in_channels, num_classes, base_c=base_c,block_type='resnet')
+    elif args.model_name == "Unet_resnest":
+        model = Unet_EX(in_channels, num_classes, base_c=base_c, block_type='resnest')
     else:
         raise ValueError("wrong model name")
     return initialize_weights(model)
@@ -275,5 +277,5 @@ def parse_args(model_name=None):
 # tensorboard --logdir logs
 # http://localhost:6006/
 if __name__ == '__main__':
-    args = parse_args('Unet_res')
+    args = parse_args('Unet_resnest')
     main(args)
