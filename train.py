@@ -228,11 +228,11 @@ def create_model(args,in_channels, num_classes, base_c=32):
     else:
         raise ValueError("wrong model name")
     return initialize_weights(model)
-def parse_args():
+def parse_args(model_name=None):
     import argparse
     parser = argparse.ArgumentParser(description="pytorch unet training")
 
-    parser.add_argument("--model_name", default="Unet0", help="模型名称")
+    parser.add_argument("--model_name", default=model_name, help="模型名称")
     parser.add_argument("--optimizer", default='adam',choices=['sgd','adam'] ,help="优化器")
     parser.add_argument("--base_size", default=256, type=int, help="图片缩放大小")
     parser.add_argument("--crop_size", default=256,  type=int, help="图片裁剪大小")
