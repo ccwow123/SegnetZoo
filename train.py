@@ -171,6 +171,7 @@ def main(args):
         tb.add_scalar("train/lr", lr, epoch)
         tb.add_scalar("val/dice loss", 1-dice, epoch)
         tb.add_scalar("val/miou", confmat["miou"], epoch)
+        tb.add_scalar("val/acc", confmat["pa"], epoch)
         # -----------------------保存模型-----------------------
         if args.save_best is True:
             if best_dice < dice:
@@ -237,10 +238,8 @@ def parse_args():
 
     return args
 
-
+# tensorboard --logdir logs
+# http://localhost:6006/
 if __name__ == '__main__':
     args = parse_args()
-
-
-
     main(args)
