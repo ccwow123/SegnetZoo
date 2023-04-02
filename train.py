@@ -242,6 +242,8 @@ def create_model(args,in_channels, num_classes, base_c=32):
         model = Unet_lite(in_channels, num_classes, base_c=base_c,block_type='mobile_s')
     elif args.model_name == "Unet_shuffle":
         model = Unet_lite(in_channels, num_classes, base_c=base_c, block_type='shuffle')
+    elif args.model_name == "Unet0_drop":
+        model = Unet0_drop(in_channels, num_classes, base_c=base_c)
     else:
         raise ValueError("wrong model name")
     return initialize_weights(model)
@@ -285,5 +287,5 @@ def parse_args(model_name=None):
 # tensorboard --logdir logs
 # http://localhost:6006/
 if __name__ == '__main__':
-    args = parse_args('Unet_res_simam')
+    args = parse_args('Unet0_drop')
     main(args)
