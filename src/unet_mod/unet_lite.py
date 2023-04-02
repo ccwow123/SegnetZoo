@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.utils.data
 import torch
-from src.unet_mod.block import Bneck,SPPF
+from src.unet_mod.block import Bneck,SPPF,ShuffleUnit
 from utils.mytools import model_test
 
 class conv_block(nn.Module):
@@ -63,28 +63,31 @@ class Unet_lite(nn.Module):
         #          32, 64, 128, 256, 512
         filters = [base_c, base_c * 2, base_c * 4, base_c * 8, base_c * 16]
         # 编码器
-        self.Maxpool = nn.MaxPool2d(kernel_size=2, stride=2)
+        # self.Maxpool = nn.MaxPool2d(kernel_size=2, stride=2)
+        self.Maxpool = nn.Sequential()
         self.Conv1 = conv_block(in_ch, filters[0])
-        if block_type == 'mobile2':
-            self.Conv2 = nn.Sequential(Bneck(filters[0], operator_kernel=3,exp_size=filters[0],out_size=filters[0],NL='HS',s=1,SE=True),
-                                        Bneck(filters[0], operator_kernel=3,exp_size=filters[0]*4,out_size=filters[1],NL='HS',s=1,SE=True),
-                                        Bneck(filters[1], operator_kernel=3,exp_size=filters[0]*8,out_size=filters[1],NL='HS',s=1,SE=True))
-            self.Conv3 = nn.Sequential(Bneck(filters[1], operator_kernel=3,exp_size=filters[1],out_size=filters[1],NL='HS',s=1,SE=True),
-                                        Bneck(filters[1], operator_kernel=3,exp_size=filters[1]*4,out_size=filters[2],NL='HS',s=1,SE=True),
-                                        Bneck(filters[2], operator_kernel=3,exp_size=filters[1]*8,out_size=filters[2],NL='HS',s=1,SE=True))
-            self.Conv4 = nn.Sequential(Bneck(filters[2], operator_kernel=3,exp_size=filters[2],out_size=filters[2],NL='HS',s=1,SE=True),
-                                        Bneck(filters[2], operator_kernel=3,exp_size=filters[2]*4,out_size=filters[3],NL='HS',s=1,SE=True),
-                                        Bneck(filters[3], operator_kernel=3,exp_size=filters[2]*8,out_size=filters[3],NL='HS',s=1,SE=True))
-            self.Conv5 = nn.Sequential(Bneck(filters[3], operator_kernel=3,exp_size=filters[3],out_size=filters[3],NL='HS',s=1,SE=True),
-                                        Bneck(filters[3], operator_kernel=3,exp_size=filters[3]*4,out_size=filters[4],NL='HS',s=1,SE=True),
-                                        Bneck(filters[4], operator_kernel=3,exp_size=filters[3]*8,out_size=filters[4],NL='HS',s=1,SE=True))
-        elif block_type == 'mobile1':
-            self.Conv2 = Bneck(filters[0], operator_kernel=3,exp_size=filters[0]*4,out_size=filters[1],NL='HS',s=1,SE=True)
-            self.Conv3 = Bneck(filters[1], operator_kernel=3,exp_size=filters[1]*4,out_size=filters[2],NL='HS',s=1,SE=True)
-            self.Conv4 = Bneck(filters[2], operator_kernel=3,exp_size=filters[2]*4,out_size=filters[3],NL='HS',s=1,SE=True)
-            self.Conv5 = Bneck(filters[3], operator_kernel=3,exp_size=filters[3]*4,out_size=filters[4],NL='HS',s=1,SE=True)
+        if block_type == 'mobile_s':
+            self.Conv2 =  Bneck(filters[0], filters[1], 3, 16, 2, 'True', 'RE')
+            self.Conv3 = nn.Sequential(Bneck(filters[1], filters[2], 3, 64,2,'False','RE'),
+                                       Bneck(filters[2], filters[2], 3, 72, 1, 'False', 'RE'))
+            self.Conv4 = nn.Sequential(Bneck(filters[2], filters[3], 5, 72, 2, 'Ture', 'HS'),
+                                       Bneck(filters[3], filters[3], 5, 120, 1, 'Ture', 'HS'),
+                                       Bneck(filters[3], filters[3], 5, 120, 1, 'Ture', 'HS'))
+            self.Conv5 = nn.Sequential(Bneck(filters[3], filters[4], 5, 240, 2, 'Ture', 'HS'),
+                                        Bneck(filters[4], filters[4], 5, 200, 1, 'Ture', 'HS'),
+                                        Bneck(filters[4], filters[4], 5, 184, 1, 'Ture', 'HS'),
+                                        Bneck(filters[4], filters[4], 5, 184, 1, 'Ture', 'HS'),
+                                        Bneck(filters[4], filters[4], 5, 480, 1, 'Ture', 'HS'),
+                                        Bneck(filters[4], filters[4], 5, 672, 1, 'Ture', 'HS'))
+
+        elif block_type == 'shuffle':
+
+            self.Conv2 = ShuffleUnit(filters[0], filters[1], 2)
+            self.Conv3 = ShuffleUnit(filters[1], filters[2], 2)
+            self.Conv4 = ShuffleUnit(filters[2], filters[3], 2)
+            self.Conv5 = ShuffleUnit(filters[3], filters[4], 2)
         else:
-            raise ValueError('block_type must be mobile or mobile2')
+            raise ValueError('block_type must be mobile_s or shuffle')
         self.spp = SPPF(filters[4], filters[4])
         # 解码器
         self.Up5 = up_conv(filters[4], filters[3],conv_block)
@@ -114,5 +117,5 @@ class Unet_lite(nn.Module):
 
 
 if __name__ == "__main__":
-    model = Unet_lite(3, 2, block_type='mobile2')
+    model = Unet_lite(3, 2, block_type='mobile_s')
     model_test(model, (2, 3, 256, 256), 'params')

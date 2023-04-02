@@ -1,311 +1,190 @@
-"""
-Author: yida
-Time is: 2021/11/13 10:21 
-this Code: 实现MobileNetV3-Small
-"""
-import os
-
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
-os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
+def Hswish(x,inplace=True):
+    return x * F.relu6(x + 3., inplace=inplace) / 6.
+
+def Hsigmoid(x,inplace=True):
+    return F.relu6(x + 3., inplace=inplace) / 6.
 
 
-class MobileNetV3_S(nn.Module):
-    def __init__(self, k):
-        super(MobileNetV3_S, self).__init__()
-        # 第一层
-        self.layer1 = nn.Sequential(
-            nn.Conv2d(3, 16, 3, padding=1, stride=2),
-            nn.BatchNorm2d(16),
-            nn.Hardswish(),
-        )
-
-        # 中间层, 使用bneck块
-        self.layer2 = Bneck(input_size=16, operator_kernel=3, exp_size=16, out_size=16, NL='RE', s=2,
-                            SE=True, skip_connection=False)
-
-        self.layer3 = Bneck(input_size=16, operator_kernel=3, exp_size=72, out_size=24, NL='RE', s=2,
-                            SE=False, skip_connection=False)
-
-        self.layer4 = Bneck(input_size=24, operator_kernel=3, exp_size=88, out_size=24, NL='RE', s=1,
-                            SE=False, skip_connection=True)
-
-        self.layer5 = Bneck(input_size=24, operator_kernel=5, exp_size=96, out_size=40, NL='HS', s=2,
-                            SE=True, skip_connection=False)
-
-        self.layer6 = Bneck(input_size=40, operator_kernel=5, exp_size=240, out_size=40, NL='HS', s=1,
-                            SE=True, skip_connection=True)
-
-        self.layer7 = Bneck(input_size=40, operator_kernel=5, exp_size=240, out_size=40, NL='HS', s=1,
-                            SE=True, skip_connection=True)
-
-        self.layer8 = Bneck(input_size=40, operator_kernel=5, exp_size=120, out_size=48, NL='HS', s=1,
-                            SE=True, skip_connection=False)
-
-        self.layer9 = Bneck(input_size=48, operator_kernel=5, exp_size=144, out_size=48, NL='HS', s=1,
-                            SE=True, skip_connection=True)
-
-        self.layer10 = Bneck(input_size=48, operator_kernel=5, exp_size=288, out_size=96, NL='HS', s=2,
-                             SE=True, skip_connection=False)
-
-        self.layer11 = Bneck(input_size=96, operator_kernel=5, exp_size=576, out_size=96, NL='HS', s=1,
-                             SE=True, skip_connection=False)
-
-        self.layer12 = Bneck(input_size=96, operator_kernel=5, exp_size=576, out_size=96, NL='HS', s=1,
-                             SE=True, skip_connection=True)
-
-        # 结尾层
-        self.layer13 = nn.Sequential(
-            nn.Conv2d(96, 576, 1, stride=1),
-            nn.BatchNorm2d(576),
-            nn.Hardswish(),
-        )
-
-        # 池化
-        self.layer14_pool = nn.AvgPool2d((7, 7), stride=1)
-
-        # 使用1×1卷积替代全连接层
-        self.layer15 = nn.Sequential(
-            nn.Conv2d(576, 1024, 1, stride=1),
-            nn.Hardswish(),  # 未使用BN层
-        )
-
-        self.layer16 = nn.Sequential(
-            nn.Conv2d(1024, k, 1, stride=1),  # 未使用BN层
+# Squeeze-And-Excite模块
+class SEModule(nn.Module):
+    def __init__(self, channel, reduction=4):
+        super(SEModule, self).__init__()
+        self.avg_pool = nn.AdaptiveAvgPool2d(1)
+        self.se = nn.Sequential(
+            nn.Linear(channel, channel // reduction, bias=False),
+            nn.ReLU(inplace=True),
+            nn.Linear(channel // reduction, channel, bias=False),
         )
 
     def forward(self, x):
-        x = self.layer1(x)  # 第一层, s=2, 使用h-swish激活函数
-        x = self.layer2(x)
-        x = self.layer3(x)
-        x = self.layer4(x)
-        x = self.layer5(x)
-        x = self.layer6(x)
-        x = self.layer7(x)
-        x = self.layer8(x)
-        x = self.layer9(x)
-        x = self.layer10(x)
-        x = self.layer11(x)
-        x = self.layer12(x)
-        x = self.layer13(x)
-        x = self.layer14_pool(x)
-        x = self.layer15(x)
-        x = self.layer16(x)
-        x = torch.squeeze(x)  # 把[b, k, 1, 1] -> 压缩成[b, k]
-        return x
+        b, c, _, _ = x.size()
+        y=self.avg_pool(x).view(b, c)
+        y=self.se(y)
+        y = Hsigmoid(y).view(b, c, 1, 1)
+        return x * y.expand_as(x)
 
-
-class Bneck(nn.Module):
-    def __init__(self, input_size, operator_kernel, exp_size, out_size, NL, s, SE=False,
-                 skip_connection=False):
-        """
-        MobileNetV3的block块
-        :param input_size: 输入维度
-        :param operator_kernel: Dw卷积核大小
-        :param exp_size: 升维维数
-        :param out_size: 输出维数
-        :param NL: 非线性激活函数,包含Relu以及h-switch
-        :param s: 卷积核步矩
-        :param SE: 是否使用注意力机制,默认为false
-        :param skip_connection: 是否进行跳跃连接,当且仅当输入与输出维数相同且大小相同时开启
-        """
-        super(Bneck, self).__init__()
-        # 1.使用1×1卷积升维
-        self.conv_1_1_up = nn.Conv2d(input_size, exp_size, 1)
-        if NL == 'RE':
-            self.nl1 = nn.Sequential(
-                nn.ReLU(),
-                nn.BatchNorm2d(exp_size),
+class Bottleneck(nn.Module):
+    def __init__(self,in_channels,out_channels,kernel_size,exp_channels,stride,se='True',nl='HS'):
+        super(Bottleneck, self).__init__()
+        padding = (kernel_size - 1) // 2
+        if nl == 'RE':
+            self.nlin_layer = F.relu6
+        elif nl == 'HS':
+            self.nlin_layer = Hswish
+        self.stride=stride
+        if se:
+            self.se=SEModule(exp_channels)
+        else:
+            self.se=None
+        self.conv1=nn.Conv2d(in_channels,exp_channels,kernel_size=1,stride=1,padding=0,bias=False)
+        self.bn1 = nn.BatchNorm2d(exp_channels)
+        self.conv2=nn.Conv2d(exp_channels,exp_channels,kernel_size=kernel_size,stride=stride,
+                             padding=padding,groups=exp_channels,bias=False)
+        self.bn2=nn.BatchNorm2d(exp_channels)
+        self.conv3=nn.Conv2d(exp_channels,out_channels,kernel_size=1,stride=1,padding=0,bias=False)
+        self.bn3=nn.BatchNorm2d(out_channels)
+        # 先初始化一个空序列，之后改造其成为残差链接
+        self.shortcut = nn.Sequential()
+        # 只有步长为1且输入输出通道不相同时才采用跳跃连接(想一下跳跃链接的过程，输入输出通道相同这个跳跃连接就没意义了)
+        if stride == 1 and in_channels != out_channels:
+            self.shortcut = nn.Sequential(
+                # 下面的操作卷积不改变尺寸，仅匹配通道数
+                nn.Conv2d(in_channels, out_channels, kernel_size=1, stride=1, padding=0, bias=False),
+                nn.BatchNorm2d(out_channels)
             )
-        elif NL == 'HS':
-            self.nl1 = nn.Sequential(
-                nn.Hardswish(),
-                nn.BatchNorm2d(exp_size),
+
+    def forward(self,x):
+        out=self.nlin_layer(self.bn1(self.conv1(x)))
+        if self.se is not None:
+            out=self.bn2(self.conv2(out))
+            out=self.nlin_layer(self.se(out))
+        else:
+            out = self.nlin_layer(self.bn2(self.conv2(out)))
+        out = self.bn3(self.conv3(out))
+        out = out + self.shortcut(x) if self.stride == 1 else out
+        return out
+
+
+class MobileNetV3_large(nn.Module):
+    # (out_channels,kernel_size,exp_channels,stride,se,nl)
+    cfg=[
+        (16,3,16,1,False,'RE'),
+        (24,3,64,2,False,'RE'),
+        (24,3,72,1,False,'RE'),
+        (40,5,72,2,True,'RE'),
+        (40,5,120,1,True,'RE'),
+        (40,5,120,1,True,'RE'),
+        (80,3,240,2,False,'HS'),
+        (80,3,200,1,False,'HS'),
+        (80,3,184,1,False,'HS'),
+        (80,3,184,1,False,'HS'),
+        (112,3,480,1,True,'HS'),
+        (112,3,672,1,True,'HS'),
+        (160,5,672,2,True,'HS'),
+        (160,5,960,1,True,'HS'),
+        (160,5,960,1,True,'HS')
+    ]
+    def __init__(self,num_classes=17):
+        super(MobileNetV3_large,self).__init__()
+        self.conv1=nn.Conv2d(3,16,3,2,padding=1,bias=False)
+        self.bn1=nn.BatchNorm2d(16)
+        # 根据cfg数组自动生成所有的Bottleneck层
+        self.layers = self._make_layers(in_channels=16)
+        self.conv2=nn.Conv2d(160,960,1,stride=1,bias=False)
+        self.bn2=nn.BatchNorm2d(960)
+        # 卷积后不跟BN，就应该把bias设置为True
+        self.conv3=nn.Conv2d(960,1280,1,1,padding=0,bias=True)
+        self.conv4=nn.Conv2d(1280,num_classes,1,stride=1,padding=0,bias=True)
+
+    def _make_layers(self,in_channels):
+        layers=[]
+        for out_channels,kernel_size,exp_channels,stride,se,nl in self.cfg:
+            layers.append(
+                Bottleneck(in_channels,out_channels,kernel_size,exp_channels,stride,se,nl)
             )
-        # 2.使用Dwise卷积, groups与输入输出维度相同
-        self.depth_conv = nn.Conv2d(exp_size, exp_size, kernel_size=operator_kernel, stride=s, groups=exp_size,
-                                    padding=(operator_kernel - 1) // 2)  # 进行padding补零使shape减半时保存一致
-        self.nl2 = nn.Sequential(
-            self.nl1,
-            nn.BatchNorm2d(exp_size)
-        )
+            in_channels=out_channels
+        return nn.Sequential(*layers)
 
-        #  3.使用1×1卷积降维
-        self.conv_1_1_down = nn.Conv2d(exp_size, out_size, 1)
+    def forward(self,x):
+        out=Hswish(self.bn1(self.conv1(x)))
+        out=self.layers(out)
+        out=Hswish(self.bn2(self.conv2(out)))
+        out=F.avg_pool2d(out,7)
+        out=Hswish(self.conv3(out))
+        out=self.conv4(out)
+        # 因为原论文中最后一层是卷积层来实现全连接的效果，维度是四维的，后两维是1，在计算损失函数的时候要求二维，因此在这里需要做一个resize
+        a,b=out.size(0),out.size(1)
+        out=out.view(a,b)
+        return out
 
-        # 判断是否添加注意力机制
-        self.se = SE
-        if SE:
-            self.se_block = SEblock(exp_size)
+class MobileNetV3_small(nn.Module):
+    # (out_channels,kernel_size,exp_channels,stride,se,nl)
+    cfg = [
+        (16,3,16,2,True,'RE'),
+        (24,3,72,2,False,'RE'),
+        (24,3,88,1,False,'RE'),
+        (40,5,96,2,True,'HS'),
+        (40,5,240,1,True,'HS'),
+        (40,5,240,1,True,'HS'),
+        (48,5,120,1,True,'HS'),
+        (48,5,144,1,True,'HS'),
+        (96,5,288,2,True,'HS'),
+        (96,5,576,1,True,'HS'),
+        (96,5,576,1,True,'HS')
+    ]
+    def __init__(self,num_classes=17):
+        super(MobileNetV3_small,self).__init__()
+        self.conv1=nn.Conv2d(3,16,3,2,padding=1,bias=False)
+        self.bn1=nn.BatchNorm2d(16)
+        # 根据cfg数组自动生成所有的Bottleneck层
+        self.layers = self._make_layers(in_channels=16)
+        self.conv2=nn.Conv2d(96,576,1,stride=1,bias=False)
+        self.bn2=nn.BatchNorm2d(576)
+        # 卷积后不跟BN，就应该把bias设置为True
+        self.conv3=nn.Conv2d(576,1280,1,1,padding=0,bias=True)
+        self.conv4=nn.Conv2d(1280,num_classes,1,stride=1,padding=0,bias=True)
 
-        # 判断是否使用跳跃连接: 说明-> 当输入维数等于输出维数且大小相同时才进行跳跃连接
-        self.skip = skip_connection
+    def _make_layers(self,in_channels):
+        layers=[]
+        for out_channels,kernel_size,exp_channels,stride,se,nl in self.cfg:
+            layers.append(
+                Bottleneck(in_channels,out_channels,kernel_size,exp_channels,stride,se,nl)
+            )
+            in_channels=out_channels
+        return nn.Sequential(*layers)
 
-    def forward(self, x):
-        # 1.1×1卷积升维
-        x1 = self.conv_1_1_up(x)
-        x1 = self.nl1(x1)
+    def forward(self,x):
+        out=Hswish(self.bn1(self.conv1(x)))
+        out=self.layers(out)
+        out=self.bn2(self.conv2(out))
+        se=SEModule(out.size(1))
+        out=Hswish(se(out))
+        out = F.avg_pool2d(out, 7)
+        out = Hswish(self.conv3(out))
+        out = self.conv4(out)
+        # 因为原论文中最后一层是卷积层来实现全连接的效果，维度是四维的，后两维是1，在计算损失函数的时候要求二维，因此在这里需要做一个resize
+        a, b = out.size(0), out.size(1)
+        out = out.view(a, b)
+        return out
 
-        # 2.Dwise卷积
-        x2 = self.depth_conv(x1)
-        x2 = self.nl2(x2)
+# 测试代码，跑通证明网络结构没问题
+# def test():
+#     net=MobileNetV3_small()
+#     x=torch.randn(2,3,224,224)
+#     y=net(x)
+#     print(y.size())
+#     print(y)
 
-        # 判断是否添加注意力机制
-        if self.se:
-            x2 = self.se_block(x2)
-
-        # 3.1×1卷积降维
-        x3 = self.conv_1_1_down(x2)
-
-        # 判断是否使用跳跃连接
-        if self.skip:
-            x3 = x3 + x
-        # print("bneck:", x3.shape)
-        return x3
-
-
-class SEblock(nn.Module):
-    def __init__(self, channel, r=0.25):
-        """
-        注意力机制模块
-        :param channel: channel为输入的维度,
-        :param r: r为全连接层缩放比例->控制中间层个数 默认为1/4
-        """
-        super(SEblock, self).__init__()
-        # 全局均值池化
-        self.global_avg_pool = nn.AdaptiveAvgPool2d(1)
-        # 全连接层
-        self.fc = nn.Sequential(
-            nn.Linear(channel, int(channel * r)),
-            nn.ReLU(),
-            nn.Linear(int(channel * r), channel),
-            nn.Sigmoid(),  # 原文中的hard-alpha 我不知道是什么激活函数,就用SE原文的Sigmoid替代(如果你知道是什么就把这儿的激活函数替换掉)
-        )
-
-    def forward(self, x):
-        # 对x进行分支计算权重, 进行全局均值池化
-        branch = self.global_avg_pool(x)
-        branch = branch.view(branch.size(0), -1)
-
-        # 全连接层得到权重
-        weight = self.fc(branch)
-
-        # 将维度为b, c的weight, reshape成b, c, 1, 1 与 输入x 相乘
-        h, w = weight.shape
-        weight = torch.reshape(weight, (h, w, 1, 1))
-
-        # 乘积获得结果
-        scale = weight * x
-        return scale
-class MobileNetV3_L(nn.Module):
-    def __init__(self, k):
-        super(MobileNetV3_L, self).__init__()
-        # 第一层
-        self.layer1 = nn.Sequential(
-            nn.Conv2d(3, 16, 1, stride=2),
-            nn.BatchNorm2d(16),
-            nn.Hardswish(),
-        )
-
-        # 中间层, 使用bneck块
-        self.layer2 = Bneck(input_size=16, operator_kernel=3, exp_size=16, out_size=16, NL='RE', s=1,
-                            SE=False, skip_connection=True)
-
-        self.layer3 = Bneck(input_size=16, operator_kernel=3, exp_size=64, out_size=24, NL='RE', s=2,
-                            SE=False, skip_connection=False)
-
-        self.layer4 = Bneck(input_size=24, operator_kernel=3, exp_size=72, out_size=24, NL='RE', s=1,
-                            SE=False, skip_connection=True)
-
-        self.layer5 = Bneck(input_size=24, operator_kernel=5, exp_size=72, out_size=40, NL='RE', s=2,
-                            SE=True, skip_connection=False)
-
-        self.layer6 = Bneck(input_size=40, operator_kernel=5, exp_size=120, out_size=40, NL='RE', s=1,
-                            SE=True, skip_connection=True)
-
-        self.layer7 = Bneck(input_size=40, operator_kernel=5, exp_size=120, out_size=40, NL='RE', s=1,
-                            SE=True, skip_connection=True)
-
-        self.layer8 = Bneck(input_size=40, operator_kernel=3, exp_size=240, out_size=80, NL='HS', s=2,
-                            SE=False, skip_connection=False)
-
-        self.layer9 = Bneck(input_size=80, operator_kernel=3, exp_size=200, out_size=80, NL='HS', s=1,
-                            SE=False, skip_connection=True)
-
-        self.layer10 = Bneck(input_size=80, operator_kernel=3, exp_size=184, out_size=80, NL='HS', s=1,
-                             SE=False, skip_connection=True)
-
-        self.layer11 = Bneck(input_size=80, operator_kernel=3, exp_size=184, out_size=80, NL='HS', s=1,
-                             SE=False, skip_connection=True)
-
-        self.layer12 = Bneck(input_size=80, operator_kernel=3, exp_size=480, out_size=112, NL='HS', s=1,
-                             SE=False, skip_connection=False)
-
-        self.layer13 = Bneck(input_size=112, operator_kernel=3, exp_size=672, out_size=112, NL='HS', s=1,
-                             SE=True, skip_connection=True)
-
-        self.layer14 = Bneck(input_size=112, operator_kernel=5, exp_size=672, out_size=160, NL='HS', s=2,
-                             SE=True, skip_connection=False)
-
-        self.layer15 = Bneck(input_size=160, operator_kernel=5, exp_size=960, out_size=160, NL='HS', s=1,
-                             SE=True, skip_connection=True)
-
-        self.layer16 = Bneck(input_size=160, operator_kernel=5, exp_size=960, out_size=160, NL='HS', s=1,
-                             SE=True, skip_connection=True)
-
-        # 结尾层
-        self.layer17 = nn.Sequential(
-            nn.Conv2d(160, 960, 1, stride=1),
-            nn.BatchNorm2d(960),
-            nn.Hardswish(),
-        )
-
-        # 池化
-        self.layer18_pool = nn.AvgPool2d((7, 7), stride=1)
-
-        # 使用1×1卷积替代全连接层
-        self.layer19 = nn.Sequential(
-            nn.Conv2d(960, 1280, 1, stride=1),
-            nn.Hardswish(),  # 未使用BN层
-        )
-
-        self.layer20 = nn.Sequential(
-            nn.Conv2d(1280, k, 1, stride=1),  # 未使用BN层
-        )
-
-    def forward(self, x):
-        x = self.layer1(x)  # 第一层, s=2, 使用h-swish激活函数
-        x = self.layer2(x)
-        x = self.layer3(x)
-        x = self.layer4(x)
-        x = self.layer5(x)
-        x = self.layer6(x)
-        x = self.layer7(x)
-        x = self.layer8(x)
-        x = self.layer9(x)
-        x = self.layer10(x)
-        x = self.layer11(x)
-        x = self.layer12(x)
-        x = self.layer13(x)
-        x = self.layer14(x)
-        x = self.layer15(x)
-        x = self.layer16(x)
-        x = self.layer17(x)
-        x = self.layer18_pool(x)
-        x = self.layer19(x)
-        x = self.layer20(x)
-        x = torch.squeeze(x)  # 把[b, k, 1, 1] -> 压缩成[b, k]
-        return x
-# ————————————————
-# 版权声明：本文为CSDN博主「陈嘿萌」的原创文章，遵循CC 4.0 BY-SA版权协议，转载请附上原文出处链接及本声明。
-# 原文链接：https://blog.csdn.net/weixin_43312117/article/details/121236450
-
-if __name__ == '__main__':
-    inputs = torch.randn(1, 3, 512, 512)
-    model = MobileNetV3_L(k=2)  # k为分类数
-    print(model)
-    print("输入维度:", inputs.shape)
-    outputs = model(inputs)
-    print("输出维度:", outputs.shape)
-
+if __name__=="__main__":
+    # test()
+    Bneck = Bottleneck
+    base_c = 32
+    filters = [base_c, base_c * 2, base_c * 4, base_c * 8, base_c * 16]
+    inputs = torch.randn(2, 32, 128, 128)
+    model = Bneck(filters[0], filters[1], 3, 16, 2, 'True', 'RE')
+    y = model(inputs)
+    print(y.size())
