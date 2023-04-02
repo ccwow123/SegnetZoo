@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.utils.data
 import torch
-from src.unet_mod.block import SPPF ,Bottleneck
+from src.unet_mod.block import SPPF ,ResNeStBottleneck
 from utils.mytools import model_test
 
 #----------------#
@@ -113,10 +113,10 @@ class Unet_EX(nn.Module):
             self.Conv4 = BasicBlock(filters[2], filters[3])
             self.Conv5 = BasicBlock(filters[3], filters[4])
         elif block_type == 'resnest':
-            self.Conv2 = Bottleneck(filters[0], filters[1])
-            self.Conv3 = Bottleneck(filters[1], filters[2])
-            self.Conv4 = Bottleneck(filters[2], filters[3])
-            self.Conv5 = Bottleneck(filters[3], filters[4])
+            self.Conv2 = ResNeStBottleneck(filters[0], filters[1])
+            self.Conv3 = ResNeStBottleneck(filters[1], filters[2])
+            self.Conv4 = ResNeStBottleneck(filters[2], filters[3])
+            self.Conv5 = ResNeStBottleneck(filters[3], filters[4])
         else:
             raise NotImplementedError('block_type 不存在')
         self.spp = SPPF(filters[4], filters[4])

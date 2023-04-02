@@ -285,5 +285,5 @@ def parse_args(model_name=None):
 # tensorboard --logdir logs
 # http://localhost:6006/
 if __name__ == '__main__':
-    args = parse_args('Unet_mobile_s')
+    args = parse_args('Unet_res_simam')
     main(args)
