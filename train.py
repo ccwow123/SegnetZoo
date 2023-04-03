@@ -11,7 +11,7 @@ from utils.my_dataset import VOCSegmentation
 from utils import transforms as T
 
 from torch.utils.tensorboard import SummaryWriter
-from utils.mytools import calculater_1
+from utils.mytools import calculater_1,Time_calculater
 from src.unet_mod import *
 def _create_folder(args):
     # 用来保存训练以及验证过程中信息
@@ -153,6 +153,7 @@ def main(args):
     #-----------------------训练-----------------------
     best_dice = 0.
     start_time = time.time()
+    time_calc = Time_calculater()
     for epoch in range(args.start_epoch, args.epochs):
         mean_loss, lr = train_one_epoch(model,loss_fn, optimizer, train_loader, device, epoch, num_classes,
                                         lr_scheduler=lr_scheduler, print_freq=args.print_freq, scaler=scaler)
@@ -174,11 +175,8 @@ def main(args):
                 f.write("model_name: -{}-  \n".format(args.model_name))
                 f.write("datasets: {}  \n".format(args.data_path))
                 f.write('flops:{:.2f}  params:{:.2f}  \n'.format(model_size[0], model_size[1]))
-            # train_info = f"[epoch: {epoch}]\n" \
-            #              f"train_loss: {mean_loss:.4f}\n" \
-            #              f"lr: {lr:.6f}\n" \
-            #              f"dice loss: {dice:.3f}\n"
-            # f.write(train_info + val_info + "\n\n")
+            # -----------------------打印时间-----------------------
+            time_calc.time_cal(epoch, args.epochs)
         # -----------------------保存tensorboard-----------------------
         tb.add_scalar("train/loss", mean_loss, epoch)
         tb.add_scalar("train/lr", lr, epoch)
@@ -207,9 +205,6 @@ def main(args):
             torch.save(checkpoints, log_dir+"/best_model.pth")
         else:
             torch.save(checkpoints, log_dir+"/model_{}.pth".format(epoch))
-
-
-
     #-----------------------训练结束-----------------------
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
@@ -262,7 +257,7 @@ def parse_args(model_name=None):
     parser.add_argument("--num-classes", default=1, type=int)
     parser.add_argument("--device", default="cuda", help="training device")
     parser.add_argument("--batch-size", default=2, type=int)
-    parser.add_argument("--epochs", default=1, type=int, metavar="N",
+    parser.add_argument("--epochs", default=10, type=int, metavar="N",
                         help="number of total epochs to train")
 
     parser.add_argument('--lr', default=1e-4, type=float, help='initial learning rate')

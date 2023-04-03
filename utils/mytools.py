@@ -40,7 +40,7 @@ class Time_calculater(object):
         now_time=time.time()
         self.remain_time=(now_time-self.last_time)*(N-i-1)
         self.last_time=now_time
-        print("剩余时间："+self.time_change(self.remain_time))
+        print('%'*20,"剩余时间："+self.time_change(self.remain_time),'%'*20)
 
 def calculater_1(model, input_size=(3, 512, 512), device='cuda'):
     # model = torchvision.models.alexnet(pretrained=False)
