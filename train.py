@@ -242,6 +242,8 @@ def create_model(args,in_channels, num_classes, base_c=32):
         model = Unet0_drop(in_channels, num_classes, base_c=base_c)
     elif args.model_name == "deeplabV3p":
         model = deeplabv3_resnet50(num_classes=num_classes, pretrained_backbone=False)
+    elif args.model_name == "lraspp_mobilenetv3_large":
+        model = lraspp_mobilenetv3_large(num_classes=num_classes, pretrain_backbone=False)
     else:
         raise ValueError("wrong model name")
     return initialize_weights(model)
@@ -285,5 +287,5 @@ def parse_args(model_name=None):
 # tensorboard --logdir logs
 # http://localhost:6006/
 if __name__ == '__main__':
-    args = parse_args('deeplabV3p')
+    args = parse_args('lraspp_mobilenetv3_large')
     main(args)
