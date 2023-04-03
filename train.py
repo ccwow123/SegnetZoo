@@ -13,6 +13,7 @@ from utils import transforms as T
 from torch.utils.tensorboard import SummaryWriter
 from utils.mytools import calculater_1,Time_calculater
 from src.unet_mod import *
+from src.nets import *
 def _create_folder(args):
     # 用来保存训练以及验证过程中信息
     if not os.path.exists("logs"):
@@ -239,6 +240,8 @@ def create_model(args,in_channels, num_classes, base_c=32):
         model = Unet_lite(in_channels, num_classes, base_c=base_c, block_type='shuffle')
     elif args.model_name == "Unet0_drop":
         model = Unet0_drop(in_channels, num_classes, base_c=base_c)
+    elif args.model_name == "deeplabV3p":
+        model = deeplabv3_resnet50(num_classes=num_classes, pretrained_backbone=False)
     else:
         raise ValueError("wrong model name")
     return initialize_weights(model)
@@ -282,5 +285,5 @@ def parse_args(model_name=None):
 # tensorboard --logdir logs
 # http://localhost:6006/
 if __name__ == '__main__':
-    args = parse_args('Unet0_drop')
+    args = parse_args('deeplabV3p')
     main(args)
