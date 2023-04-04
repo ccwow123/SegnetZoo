@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.utils.data
 import torch
-from src.unet_mod.block import C3, C3Ghost,Conv,SPPF
+from src.unet_mod.block import C3, C3Ghost,Conv,SPPF,C2f
 from utils.mytools import model_test
 
 #----------------#
@@ -40,14 +40,18 @@ class up_C3(nn.Module):
         return x
 
 class Unet_c3g(nn.Module):
-    def __init__(self, in_ch=3, out_ch=2,base_c: int = 64,block: str = 'C3Ghost'):
+    def __init__(self, in_ch=3, out_ch=2,base_c: int = 32,block: str = 'C3Ghost'):
         super().__init__()
         #           64, 128, 256, 512, 1024
         filters = [base_c, base_c * 2, base_c * 4, base_c * 8, base_c * 16]
         if block == 'C3Ghost':
             Conv_b = C3Ghost
-        else:
+        elif block == 'C3':
             Conv_b = C3
+        elif block == 'C2f':
+            Conv_b = C2f
+        else:
+            raise NotImplementedError(f'block {block} is not implemented')
         # 编码器
         self.Conv1 =Conv(in_ch, filters[0], 6, 2, 2)
         self.Conv2 =nn.Sequential(Conv(filters[0], filters[1], 3, 2, 1),
@@ -92,5 +96,5 @@ class Unet_c3g(nn.Module):
 
 
 if __name__ == "__main__":
-    model = Unet_c3g(3,2)
-    model_test(model,(2,3,256,256),'shape')
+    model = Unet_c3g(3,2,block='C3')
+    model_test(model,(2,3,256,256),'params')

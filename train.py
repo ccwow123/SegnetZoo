@@ -221,7 +221,9 @@ def create_model(args,in_channels, num_classes, base_c=32):
     elif args.model_name == "Unet_c3g":
         model = Unet_c3g(in_channels, num_classes, base_c=base_c)
     elif args.model_name == "Unet_c3":
-        model = Unet_c3g(in_channels, num_classes, base_c=base_c,block='c3')
+        model = Unet_c3g(in_channels, num_classes, base_c=base_c,block='C3')
+    elif args.model_name == "Unet_c2f":
+        model = Unet_c3g(in_channels, num_classes, base_c=base_c,block='C2f')
     elif args.model_name == "Unet_res":
         model = Unet_EX(in_channels, num_classes, base_c=base_c,block_type='resnet')
     elif args.model_name == "Unet_resnest":
@@ -287,5 +289,5 @@ def parse_args(model_name=None):
 # tensorboard --logdir logs
 # http://localhost:6006/
 if __name__ == '__main__':
-    args = parse_args('lraspp_mobilenetv3_large')
+    args = parse_args('Unet_c2f')
     main(args)
