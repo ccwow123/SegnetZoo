@@ -193,14 +193,17 @@ def main(args):
             else:
                 continue
         # 模型结构、优化器、学习率更新策略、epoch、参数
-        checkpoints = {"model": model.state_dict(),
+        if args.save_method == "all":
+            checkpoints = model
+        else:
+            checkpoints = {"model": model.state_dict(),
                      "optimizer": optimizer.state_dict(),
                      "lr_scheduler": lr_scheduler.state_dict(),
                      "epoch": epoch,
                      }
-        # 混合精度训练
-        if args.amp:
-            checkpoints["scaler"] = scaler.state_dict()
+            # 混合精度训练
+            if args.amp:
+                checkpoints["scaler"] = scaler.state_dict()
         # 保存模型
         if args.save_best is True:
             torch.save(checkpoints, log_dir+"/best_model.pth")
@@ -258,6 +261,7 @@ def parse_args(model_name=None):
     parser.add_argument("--base_size", default=256, type=int, help="图片缩放大小")
     parser.add_argument("--crop_size", default=256,  type=int, help="图片裁剪大小")
     parser.add_argument("--base_c", default=32, type=int, help="uent的基础通道数")
+    parser.add_argument('--save_method',default='all' ,choices=['all','dict'],help='保存模型的方式')
 
     parser.add_argument("--data-path", default=r"..\VOCdevkit_cap_c5_bin", help="VOC数据集路径")
     # exclude background
