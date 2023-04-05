@@ -258,8 +258,8 @@ def parse_args(model_name=None):
 
     parser.add_argument("--model_name", default=model_name, help="模型名称")
     parser.add_argument("--optimizer", default='adam',choices=['sgd','adam'] ,help="优化器")
-    parser.add_argument("--base_size", default=256, type=int, help="图片缩放大小")
-    parser.add_argument("--crop_size", default=256,  type=int, help="图片裁剪大小")
+    parser.add_argument("--base_size", default=512, type=int, help="图片缩放大小")
+    parser.add_argument("--crop_size", default=512,  type=int, help="图片裁剪大小")
     parser.add_argument("--base_c", default=32, type=int, help="uent的基础通道数")
     parser.add_argument('--save_method',default='all' ,choices=['all','dict'],help='保存模型的方式')
 
