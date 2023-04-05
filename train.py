@@ -223,8 +223,8 @@ def create_model(args,in_channels, num_classes, base_c=32):
         model = Unet0(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
     elif args.model_name == "Unet_c3g":
         model = Unet_c3g(in_channels, num_classes, base_c=base_c)
-    elif args.model_name == "Unet_c3":
-        model = Unet_c3g(in_channels, num_classes, base_c=base_c,block='C3')
+    # elif args.model_name == "Unet_c3":
+    #     model = Unet_c3g(in_channels, num_classes, base_c=base_c,block='C3')
     elif args.model_name == "Unet_c2f":
         model = Unet_c3g(in_channels, num_classes, base_c=base_c,block='C2f')
     elif args.model_name == "Unet_res":
@@ -249,6 +249,12 @@ def create_model(args,in_channels, num_classes, base_c=32):
         model = deeplabv3_resnet50(num_classes=num_classes, pretrained_backbone=False)
     elif args.model_name == "lraspp_mobilenetv3_large":
         model = lraspp_mobilenetv3_large(num_classes=num_classes, pretrain_backbone=False)
+    elif args.model_name == "Unet_C3":
+        model = Unet_best(in_channels, num_classes, base_c=base_c,block='C3')
+    elif args.model_name == "Unet_C3_spp":
+        model = Unet_best(in_channels, num_classes, base_c=base_c,block='C3',spp='spp')
+    elif args.model_name == "Unet_C3_sppf":
+        model = Unet_best(in_channels, num_classes, base_c=base_c,block='C3',spp='sppf')
     else:
         raise ValueError("wrong model name")
     return initialize_weights(model)
