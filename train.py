@@ -255,6 +255,8 @@ def create_model(args,in_channels, num_classes, base_c=32):
         model = Unet_best(in_channels, num_classes, base_c=base_c,block='C3',spp='spp')
     elif args.model_name == "Unet_C3_sppf":
         model = Unet_best(in_channels, num_classes, base_c=base_c,block='C3',spp='sppf')
+    elif args.model_name == "Unet_C3_dw":
+        model = Unet_best(in_channels, num_classes, base_c=base_c, block='C3', dw=True)
     else:
         raise ValueError("wrong model name")
     return initialize_weights(model)

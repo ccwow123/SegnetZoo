@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.utils.data
 import torch
-from src.unet_mod.block import C3, C3Ghost,C2f,Conv,SPPF, SPP
+from src.unet_mod.block import C3, C3Ghost,C2f,Conv,SPPF, SPP,DWConv
 from utils.mytools import model_test
 
 #----------------#
@@ -95,10 +95,14 @@ class Unet_c3g(nn.Module):
         return out
 
 class Unet_best(nn.Module):
-    def __init__(self, in_ch=3, out_ch=2,base_c: int = 32,block: str = 'C3',spp='sppf'):
+    def __init__(self, in_ch=3, out_ch=2,base_c: int = 32,block: str = 'C3',spp='sppf',dw=False):
         super().__init__()
         #           64, 128, 256, 512, 1024
         filters = [base_c, base_c * 2, base_c * 4, base_c * 8, base_c * 16]
+
+        if dw :
+            Conv = DWConv
+
         if block == 'C3Ghost':
             Conv_b = C3Ghost
         elif block == 'C3':
@@ -154,5 +158,5 @@ class Unet_best(nn.Module):
         return out
 if __name__ == "__main__":
     # model = Unet_c3g(3,2,block='C3')
-    model = Unet_best(3,2,block='C3',spp='spp')
+    model = Unet_best(3,2,block='C3',spp='spp',dw=True)
     model_test(model,(2,3,256,256),'params')
