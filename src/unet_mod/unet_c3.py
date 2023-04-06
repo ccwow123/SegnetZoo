@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.utils.data
 import torch
-from src.unet_mod.block import C3, C3Ghost,C2f,Conv,SPPF, SPP,DWConv
+from src.unet_mod.block import C3, C3Ghost,C2f,Conv,SPPF, SPP,DWConv,CBAM
 from utils.mytools import model_test
 
 #----------------#
@@ -95,14 +95,19 @@ class Unet_c3g(nn.Module):
         return out
 
 class Unet_best(nn.Module):
-    def __init__(self, in_ch=3, out_ch=2,base_c: int = 32,block: str = 'C3',spp='sppf',dw=False):
+    def __init__(self, in_ch=3, out_ch=2,base_c: int = 32,
+                 block: str = 'C3',spp='sppf',dw=False,
+                 att='cbam'):
         super().__init__()
         #           64, 128, 256, 512, 1024
         filters = [base_c, base_c * 2, base_c * 4, base_c * 8, base_c * 16]
 
         if dw :
             Conv = DWConv
-
+        if att == 'cbam':
+            Att = CBAM
+        else:
+            Att = None
         if block == 'C3Ghost':
             Conv_b = C3Ghost
         elif block == 'C3':
@@ -112,13 +117,17 @@ class Unet_best(nn.Module):
         # 编码器
         self.Conv1 =Conv(in_ch, filters[0], 6, 2, 2)
         self.Conv2 =nn.Sequential(Conv(filters[0], filters[1], 3, 2, 1),
-                                  Conv_b(filters[1], filters[1]))
+                                  Conv_b(filters[1], filters[1]),
+                                  Att(filters[1]))
         self.Conv3 =nn.Sequential(Conv(filters[1], filters[2], 3, 2, 1),
-                                    Conv_b(filters[2], filters[2]))
+                                    Conv_b(filters[2], filters[2]),
+                                    Att(filters[2]))
         self.Conv4 =nn.Sequential(Conv(filters[2], filters[3], 3, 2, 1),
-                                    Conv_b(filters[3], filters[3]))
+                                    Conv_b(filters[3], filters[3]),
+                                    Att(filters[3]))
         self.Conv5 =nn.Sequential(Conv(filters[3], filters[4], 3, 2, 1),
-                                    Conv_b(filters[4], filters[4]))
+                                    Conv_b(filters[4], filters[4]),
+                                    Att(filters[4]))
 
         if spp == 'sppf':
             self.SPP = SPPF(filters[4], filters[4])
