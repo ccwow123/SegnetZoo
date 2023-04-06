@@ -221,12 +221,6 @@ def create_model(args,in_channels, num_classes, base_c=32):
         model = UNet(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
     elif args.model_name == "Unet0":
         model = Unet0(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
-    elif args.model_name == "Unet_c3g":
-        model = Unet_c3g(in_channels, num_classes, base_c=base_c)
-    # elif args.model_name == "Unet_c3":
-    #     model = Unet_c3g(in_channels, num_classes, base_c=base_c,block='C3')
-    elif args.model_name == "Unet_c2f":
-        model = Unet_c3g(in_channels, num_classes, base_c=base_c,block='C2f')
     elif args.model_name == "Unet_res":
         model = Unet_EX(in_channels, num_classes, base_c=base_c,block_type='resnet')
     elif args.model_name == "Unet_resnest":
@@ -255,8 +249,6 @@ def create_model(args,in_channels, num_classes, base_c=32):
         model = Unet_best(in_channels, num_classes, base_c=base_c,block='C3',spp='spp')
     elif args.model_name == "Unet_C3_sppf":
         model = Unet_best(in_channels, num_classes, base_c=base_c,block='C3',spp='sppf')
-    elif args.model_name == "Unet_C3_dw":
-        model = Unet_best(in_channels, num_classes, base_c=base_c, block='C3', dw=True)
     elif args.model_name == "Unet_C3_cbam":
         model = Unet_best(in_channels, num_classes, base_c=base_c, block='C3', att='cbam')
     elif args.model_name == "Unet_C3_sam":
@@ -305,5 +297,5 @@ def parse_args(model_name=None):
 # tensorboard --logdir logs
 # http://localhost:6006/
 if __name__ == '__main__':
-    args = parse_args('Unet_C3_cbam')
+    args = parse_args('Unet_C3_dw')
     main(args)

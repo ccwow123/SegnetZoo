@@ -43,16 +43,11 @@ class up_C3(nn.Module):
 
 class Unet_best(nn.Module):
     def __init__(self, in_ch=3, out_ch=2,base_c: int = 32,
-                 block: str = 'C3',spp='sppf',dw=False,
+                 block: str = 'C3',spp='sppf',
                  att='cbam'):
         super().__init__()
         #           64, 128, 256, 512, 1024
         filters = [base_c, base_c * 2, base_c * 4, base_c * 8, base_c * 16]
-        # 选择卷积块
-        if dw :
-            C1 = DWConv
-        else:
-            C1 = Conv
         #  选择注意力机制
         if att == 'cbam':
             Att = CBAM
@@ -68,17 +63,17 @@ class Unet_best(nn.Module):
         else:
             raise NotImplementedError(f'block {block} is not implemented')
         # 编码器
-        self.Conv1 =C1(in_ch, filters[0], 6, 2, 2)
-        self.Conv2 =nn.Sequential(C1(filters[0], filters[1], 3, 2, 1),
+        self.Conv1 =Conv(in_ch, filters[0], 6, 2, 2)
+        self.Conv2 =nn.Sequential(Conv(filters[0], filters[1], 3, 2, 1),
                                   Conv_b(filters[1], filters[1]),
                                   Att(filters[1]))
-        self.Conv3 =nn.Sequential(C1(filters[1], filters[2], 3, 2, 1),
+        self.Conv3 =nn.Sequential(Conv(filters[1], filters[2], 3, 2, 1),
                                     Conv_b(filters[2], filters[2]),
                                     Att(filters[2]))
-        self.Conv4 =nn.Sequential(C1(filters[2], filters[3], 3, 2, 1),
+        self.Conv4 =nn.Sequential(Conv(filters[2], filters[3], 3, 2, 1),
                                     Conv_b(filters[3], filters[3]),
                                     Att(filters[3]))
-        self.Conv5 =nn.Sequential(C1(filters[3], filters[4], 3, 2, 1),
+        self.Conv5 =nn.Sequential(Conv(filters[3], filters[4], 3, 2, 1),
                                     Conv_b(filters[4], filters[4]),
                                     Att(filters[4]))
 
@@ -120,5 +115,5 @@ class Unet_best(nn.Module):
         return out
 if __name__ == "__main__":
     # model = Unet_c3g(3,2,block='C3')
-    model = Unet_best(3,2,block='C3',spp='spp',dw=True,att='sam')
+    model = Unet_best(3,2,block='C3',spp='spp',att='sam')
     model_test(model,(2,3,256,256),'params')
