@@ -267,6 +267,13 @@ def create_model(args,in_channels, num_classes, base_c=32):
         model = Unet_best_right(in_channels, num_classes, base_c=base_c, block='C3', spp='sppf', att='sam')
     elif args.model_name == "Unet_C3_sppf_ca_r":
         model = Unet_best_right(in_channels, num_classes, base_c=base_c, block='C3', spp='sppf', att='ca')
+
+    elif args.model_name == "Unet_C3CSP":
+        model = Unet_best(in_channels, num_classes, base_c=base_c, block='C3CSP')
+    elif args.model_name == "Unet_C3CSP_sppf":
+        model = Unet_best(in_channels, num_classes, base_c=base_c, block='C3CSP', spp='sppf')
+    elif args.model_name == "Unet_C3CSP_sppf_sam":
+        model = Unet_best(in_channels, num_classes, base_c=base_c, block='C3CSP', spp='sppf', att='sam')
     else:
         raise ValueError("wrong model name")
     return initialize_weights(model)
@@ -276,8 +283,8 @@ def parse_args(model_name=None):
 
     parser.add_argument("--model_name", default=model_name, help="模型名称")
     parser.add_argument("--optimizer", default='adam',choices=['sgd','adam'] ,help="优化器")
-    parser.add_argument("--base_size", default=512, type=int, help="图片缩放大小")
-    parser.add_argument("--crop_size", default=512,  type=int, help="图片裁剪大小")
+    parser.add_argument("--base_size", default=256, type=int, help="图片缩放大小")
+    parser.add_argument("--crop_size", default=256,  type=int, help="图片裁剪大小")
     parser.add_argument("--base_c", default=32, type=int, help="uent的基础通道数")
     parser.add_argument('--save_method',default='all' ,choices=['all','dict'],help='保存模型的方式')
 

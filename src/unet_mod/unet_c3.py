@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.utils.data
 import torch
-from src.unet_mod.block import C3, C3Ghost,C2f,Conv,SPPF, SPP,DWConv,CBAM,SimAM,CoordAtt
+from src.unet_mod.block import C3, C3Ghost,C2f,Conv,SPPF, SPP,DWConv,CBAM,SimAM,CoordAtt,C3CSP
 from utils.mytools import model_test
 
 #----------------#
@@ -58,8 +58,8 @@ class Unet_best(nn.Module):
         else:
             Att = None
         # 选择卷积块
-        if block == 'C3Ghost':
-            Conv_b = C3Ghost
+        if block == 'C3CSP':
+            Conv_b = C3CSP
         elif block == 'C3':
             Conv_b = C3
         else:
@@ -194,5 +194,6 @@ class Unet_best_right(nn.Module):
 if __name__ == "__main__":
     # model = Unet_c3g(3,2,block='C3')
     # model = Unet_best(3,2,block='C3',spp='sppf',att='ca')
-    model = Unet_best_right(3,2,block='C3',spp='sppf',att='ca')
+    model = Unet_best(3,2,block='C3CSP',spp='sppf',att='ca')
+    # model = Unet_best_right(3,2,block='C3',spp='sppf',att='ca')
     model_test(model,(2,3,256,256),'params')
