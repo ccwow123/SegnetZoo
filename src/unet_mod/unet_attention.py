@@ -2,7 +2,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from src.unet_mod.block import CBAM, SELayer,sa_layer,CoordAtt,SimAM
+from src.unet_mod.block import CBAM, SELayer,CoordAtt,SimAM
 from src.unet_mod import Unet_EX
 from utils.mytools import model_test
 

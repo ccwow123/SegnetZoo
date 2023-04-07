@@ -258,6 +258,8 @@ def create_model(args,in_channels, num_classes, base_c=32):
         model = Unet_best(in_channels, num_classes, base_c=base_c, block='C3', spp='sppf', att='cbam')
     elif args.model_name == "Unet_C3_sppf_sam":
         model = Unet_best(in_channels, num_classes, base_c=base_c, block='C3', spp='sppf', att='sam')
+    elif args.model_name == "Unet_C3_sppf_ca":
+        model = Unet_best(in_channels, num_classes, base_c=base_c, block='C3', spp='sppf', att='ca')
     else:
         raise ValueError("wrong model name")
     return initialize_weights(model)
@@ -302,5 +304,5 @@ def parse_args(model_name=None):
 # tensorboard --logdir logs
 # http://localhost:6006/
 if __name__ == '__main__':
-    args = parse_args('Unet_C3_sppf_cbam')
+    args = parse_args('Unet_C3_sppf_ca')
     main(args)
