@@ -91,7 +91,6 @@ class SimAM(torch.nn.Module):
         return x * self.activaton(y)
 
 # CA
-# CA
 class h_sigmoid(nn.Module):
     def __init__(self, inplace=True):
         super(h_sigmoid, self).__init__()
@@ -104,7 +103,6 @@ class h_swish(nn.Module):
         self.sigmoid = h_sigmoid(inplace=inplace)
     def forward(self, x):
         return x * self.sigmoid(x)
-
 class CoordAtt(nn.Module):
     def __init__(self, channel, reduction=32):
         super(CoordAtt, self).__init__()
