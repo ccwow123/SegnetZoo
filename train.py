@@ -243,6 +243,7 @@ def create_model(args,in_channels, num_classes, base_c=32):
         model = deeplabv3_resnet50(num_classes=num_classes, pretrained_backbone=False)
     elif args.model_name == "lraspp_mobilenetv3_large":
         model = lraspp_mobilenetv3_large(num_classes=num_classes, pretrain_backbone=False)
+
     elif args.model_name == "Unet_C3":
         model = Unet_best(in_channels, num_classes, base_c=base_c,block='C3')
     elif args.model_name == "Unet_C3_spp":
@@ -253,6 +254,10 @@ def create_model(args,in_channels, num_classes, base_c=32):
         model = Unet_best(in_channels, num_classes, base_c=base_c, block='C3', att='cbam')
     elif args.model_name == "Unet_C3_sam":
         model = Unet_best(in_channels, num_classes, base_c=base_c, block='C3', att='sam')
+    elif args.model_name == "Unet_C3_sppf_cbam":
+        model = Unet_best(in_channels, num_classes, base_c=base_c, block='C3', spp='sppf', att='cbam')
+    elif args.model_name == "Unet_C3_sppf_sam":
+        model = Unet_best(in_channels, num_classes, base_c=base_c, block='C3', spp='sppf', att='sam')
     else:
         raise ValueError("wrong model name")
     return initialize_weights(model)
@@ -297,5 +302,5 @@ def parse_args(model_name=None):
 # tensorboard --logdir logs
 # http://localhost:6006/
 if __name__ == '__main__':
-    args = parse_args('Unet_C3_dw')
+    args = parse_args('Unet_C3_sppf_cbam')
     main(args)
