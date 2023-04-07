@@ -288,6 +288,12 @@ def create_model(args,in_channels, num_classes, base_c=32):
         model = Unet_C3(in_channels, num_classes, n=3, e=0.25, base_c=base_c, spp='sppf')
     elif args.model_name == "Unet_C33e_sppf_sam":
         model = Unet_C3(in_channels, num_classes, n=3, e=0.25, base_c=base_c, spp='sppf', att='sam')
+
+    elif args.model_name == "Unet_cat":#n=3, e=0.25,
+        model = Unet_cat(in_channels, num_classes, base_c=base_c)
+    elif args.model_name == "Unet_cat_sppf":
+        model = Unet_cat(in_channels, num_classes, base_c=base_c, spp='sppf')
+
     else:
         raise ValueError("wrong model name")
     return initialize_weights(model)
