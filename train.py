@@ -216,7 +216,7 @@ def main(args):
 
 
 # 建立模型
-def create_model(args,in_channels, num_classes, base_c=32):
+def create_model0(args,in_channels, num_classes, base_c=32):
     if args.model_name == "unet":
         model = UNet(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
     elif args.model_name == "Unet0":
@@ -296,6 +296,21 @@ def create_model(args,in_channels, num_classes, base_c=32):
     #重构
     elif args.model_name == "X_Unet":
         model = X_Unet(in_channels, num_classes, base_c=base_c)
+
+    else:
+        raise ValueError("wrong model name")
+    return initialize_weights(model)
+def create_model(args,in_channels, num_classes, base_c=32):
+    if args.model_name == "unet":
+        model = UNet(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
+    elif args.model_name == "Unet0":
+        model = Unet0(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
+
+    #重构
+    elif args.model_name == "X_Unet":
+        model = X_Unet(in_channels, num_classes, base_c=base_c)
+    elif args.model_name == "X_Unet_v2":
+        model = X_Unet_v2(in_channels, num_classes, base_c=base_c)
 
     else:
         raise ValueError("wrong model name")
