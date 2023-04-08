@@ -4,4 +4,4 @@ from .unet_c3 import Unet_best, Unet_best_right,Unet_C3,Unet_cat
 from .unet_res import Unet_EX
 from .unet_attention import Unet_Attention
 from .unet_lite import Unet_lite
-from .x_unet import X_Unet,X_Unet_v2
+from .x_unet import X_Unet,X_Unet_v2,X_Unet_v3

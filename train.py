@@ -311,6 +311,8 @@ def create_model(args,in_channels, num_classes, base_c=32):
         model = X_Unet(in_channels, num_classes, base_c=base_c)
     elif args.model_name == "X_Unet_v2":
         model = X_Unet_v2(in_channels, num_classes, base_c=base_c)
+    elif args.model_name == "X_Unet_v3":
+        model = X_Unet_v3(in_channels, num_classes, base_c=base_c)
 
     else:
         raise ValueError("wrong model name")
