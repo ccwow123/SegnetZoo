@@ -317,7 +317,8 @@ def create_model(args,in_channels, num_classes, base_c=32):
         model = X_Unet_v4(in_channels, num_classes, base_c=base_c)
     elif args.model_name == "X_Unet_v4_2":
         model = X_Unet_v4_2(in_channels, num_classes, base_c=base_c)
-
+    elif args.model_name == "X_Unet_v5":
+        model = X_Unet_v5(in_channels, num_classes, base_c=base_c)
     else:
         raise ValueError("wrong model name")
     return initialize_weights(model)
@@ -362,5 +363,5 @@ def parse_args(model_name=None):
 # tensorboard --logdir logs
 # http://localhost:6006/
 if __name__ == '__main__':
-    args = parse_args('X_Unet_v4_2')
+    args = parse_args('X_Unet_v5')
     main(args)
