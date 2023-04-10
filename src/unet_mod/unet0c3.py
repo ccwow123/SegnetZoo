@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 from utils.mytools import model_test
 import torch.nn.functional as F
-from src.unet_mod.block import C3,Conv,SPPF,SimAM
+from src.unet_mod.block import C3,Conv,SPPF,SimAM,CoordAtt
 
 class Down(nn.Sequential):
     def __init__(self, in_channels, out_channels):
@@ -177,7 +177,7 @@ class Unet0c3_v2_2(nn.Module):
                  num_classes: int = 2,
                  bilinear: bool = False,
                  base_c: int = 32,
-                 attention='cam'):
+                 attention='ca'):
         super().__init__()
         self.in_channels = in_channels
         self.num_classes = num_classes
@@ -196,11 +196,11 @@ class Unet0c3_v2_2(nn.Module):
         self.up4 = Up(base_c * 2, base_c, bilinear)
         self.out_conv = OutConv(base_c, num_classes)
 
-        if attention  == 'cam':
-            self.att_1 = SimAM(base_c * 2)
-            self.att_2 = SimAM(base_c * 4)
-            self.att_3 = SimAM(base_c * 8)
-            self.att_4 = SimAM(base_c * 16)
+        if attention == 'ca':
+            self.att_1 = CoordAtt(base_c * 1)
+            self.att_2 = CoordAtt(base_c * 2)
+            self.att_3 = CoordAtt(base_c * 4)
+            self.att_4 = CoordAtt(base_c * 8)
 
     def forward(self, x: torch.Tensor) :
         x1 = self.in_conv(x)
@@ -216,5 +216,5 @@ class Unet0c3_v2_2(nn.Module):
         logits = self.out_conv(x)
         return logits
 if __name__ == '__main__':
-    model = Unet0c3_v2_2(3,2)
+    model = Unet0c3_v2_2(3,2,attention='ca')
     model_test(model,(2,3,256,256),'shape')

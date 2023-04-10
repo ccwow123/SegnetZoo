@@ -327,7 +327,7 @@ def create_model(args,in_channels, num_classes, base_c=32):
     elif args.model_name == "Unet0c3_v2_1":
         model = Unet0c3_v2_1(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
     elif args.model_name == "Unet0c3_v2_2":
-        model = Unet0c3_v2_2(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
+        model = Unet0c3_v2_2(in_channels=in_channels, num_classes=num_classes, base_c=base_c, attention='ca')
     else:
         raise ValueError("wrong model name")
     return initialize_weights(model)
