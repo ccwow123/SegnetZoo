@@ -286,7 +286,6 @@ class X_Unet_v5(nn.Module):
         out = self.segmentation_head(y_0)#32,128,128 -> 2,256,256
 
         return out
-
 if __name__ == '__main__':
     model = X_Unet_v5()
     model_test(model, (2,3,256,256),'params')
