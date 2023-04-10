@@ -5,4 +5,4 @@ from .unet_res import Unet_EX
 from .unet_attention import Unet_Attention
 from .unet_lite import Unet_lite
 from .x_unet import X_Unet,X_Unet_v2,X_Unet_v3,X_Unet_v4,X_Unet_v4_2,X_Unet_v5
-from .unet0c3 import Unet0c3,Unet0c3_v2,Unet0c3_v2_1
+from .unet0c3 import Unet0c3,Unet0c3_v2,Unet0c3_v2_1,Unet0c3_v2_2
