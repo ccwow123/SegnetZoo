@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 from utils.mytools import model_test
 import torch.nn.functional as F
-from src.unet_mod.block import C3,Conv,SPPF,SimAM,CoordAtt
+from src.unet_mod.block import C3,Conv,SPPF,SimAM,CoordAtt,ASPP
 
 class Down(nn.Sequential):
     def __init__(self, in_channels, out_channels):
@@ -258,7 +258,52 @@ class Unet0c3_v2_3(nn.Module):
         x = self.up4(x, self.att_1(x1))
         logits = self.out_conv(x)
         return logits
+#v3 在将中间改为SPPF
+class Down_mid(nn.Sequential):
+    def __init__(self, in_channels, out_channels):
+        super().__init__(
+            nn.MaxPool2d(2, stride=2),
+            C3(in_channels, out_channels*2,n=1),
+            SPPF(out_channels*2, out_channels),
+            C3(out_channels, out_channels,n=1),
+        )
+class Unet0c3_v3(nn.Module):
+    def __init__(self,
+                 in_channels: int = 3,
+                 num_classes: int = 2,
+                 bilinear: bool = False,
+                 base_c: int = 32):
+        super().__init__()
+        self.in_channels = in_channels
+        self.num_classes = num_classes
+        self.bilinear = bilinear
 
+        self.in_conv = Conv(in_channels, base_c)
+        self.down1 = Down(base_c, base_c * 2)
+        self.down2 = Down(base_c * 2, base_c * 4)
+        self.down3 = Down(base_c * 4, base_c * 8)
+        factor = 2 if bilinear else 1
+        self.down4 = Down_mid(base_c * 8, base_c * 16 // factor)
+        self.up1 = Up(base_c * 16, base_c * 8 // factor, bilinear)
+        self.up2 = Up(base_c * 8, base_c * 4 // factor, bilinear)
+        self.up3 = Up(base_c * 4, base_c * 2 // factor, bilinear)
+        self.up4 = Up(base_c * 2, base_c, bilinear)
+        self.out_conv = OutConv(base_c, num_classes)
+
+    def forward(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
+        x1 = self.in_conv(x)
+        x2 = self.down1(x1)
+        x3 = self.down2(x2)
+        x4 = self.down3(x3)
+        x5 = self.down4(x4)
+        x = self.up1(x5, x4)
+        x = self.up2(x, x3)
+        x = self.up3(x, x2)
+        x = self.up4(x, x1)
+        logits = self.out_conv(x)
+
+        return logits
 if __name__ == '__main__':
-    model = Unet0c3_v2_3(3,2,attention='ca')
-    model_test(model,(2,3,256,256),'shape')
+    # model = Unet0c3_v2_3(3,2,attention='ca')
+    model = Unet0c3_v3(3,2)
+    model_test(model,(2,3,256,256),'params')
