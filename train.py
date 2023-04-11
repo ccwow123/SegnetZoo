@@ -330,11 +330,13 @@ def create_model(args,in_channels, num_classes, base_c=32):
         model = Unet0c3_v2_2(in_channels=in_channels, num_classes=num_classes, base_c=base_c, attention='ca')
     elif args.model_name == "Unet0c3_v2_3":
         model = Unet0c3_v2_3(in_channels=in_channels, num_classes=num_classes, base_c=base_c, attention='ca')
-
     elif args.model_name == "Unet0c3_v2_3cbam":
         model = Unet0c3_v2_3(in_channels=in_channels, num_classes=num_classes, base_c=base_c, attention='CBAM')
-    elif args.model_name == "Unet0c3_v2_3s2":
-        model = Unet0c3_v2_3(in_channels=in_channels, num_classes=num_classes, base_c=base_c, attention='S2')
+
+    elif args.model_name == "Unet0c3_v2_4ca":
+        model = Unet0c3_v2_4(in_channels=in_channels, num_classes=num_classes, base_c=base_c, attention='ca')
+    elif args.model_name == "Unet0c3_v2_4cbam":
+        model = Unet0c3_v2_4(in_channels=in_channels, num_classes=num_classes, base_c=base_c, attention='CBAM')
 
     elif args.model_name == "Unet0c3_v3":
         model = Unet0c3_v3(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
