@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 from utils.mytools import model_test
 import torch.nn.functional as F
-from src.unet_mod.block import C3,Conv,SPPF,SimAM,CoordAtt,ASPP
+from src.unet_mod.block import C3,Conv,SPPF,SimAM,CoordAtt,ASPP,CBAM,S2Attention
 
 class Down(nn.Sequential):
     def __init__(self, in_channels, out_channels):
@@ -245,6 +245,16 @@ class Unet0c3_v2_3(nn.Module):
             self.att_2 = CoordAtt(base_c * 2)
             self.att_3 = CoordAtt(base_c * 4)
             self.att_4 = CoordAtt(base_c * 8)
+        elif attention == 'CBAM':
+            self.att_1 = CBAM(base_c * 1)
+            self.att_2 = CBAM(base_c * 2)
+            self.att_3 = CBAM(base_c * 4)
+            self.att_4 = CBAM(base_c * 8)
+        elif attention == 'S2':
+            self.att_1 = S2Attention(base_c * 1)
+            self.att_2 = S2Attention(base_c * 2)
+            self.att_3 = S2Attention(base_c * 4)
+            self.att_4 = S2Attention(base_c * 8)
 
     def forward(self, x: torch.Tensor) :
         x1 = self.in_conv(x)
