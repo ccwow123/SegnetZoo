@@ -340,6 +340,8 @@ def create_model(args,in_channels, num_classes, base_c=32):
 
     elif args.model_name == "Unet0c3_v3":
         model = Unet0c3_v3(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
+    elif args.model_name == "Unet0c3_v3_1":
+        model = Unet0c3_v3_1(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
     else:
         raise ValueError("wrong model name")
     return initialize_weights(model)
@@ -384,5 +386,5 @@ def parse_args(model_name=None):
 # tensorboard --logdir logs
 # http://localhost:6006/
 if __name__ == '__main__':
-    args = parse_args('Unet0c3_v2_2')
+    args = parse_args('Unet0c3_v3_1')
     main(args)
