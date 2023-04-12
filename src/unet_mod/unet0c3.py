@@ -473,9 +473,62 @@ class Unet0c3_v4(nn.Module):
         logits = self.out_conv(x)
 
         return logits
+# v5 使用sppf，bilinear=True,attention='cbam'
+class Unet0c3_v5(nn.Module):
+    def __init__(self,
+                 in_channels: int = 3,
+                 num_classes: int = 2,
+                 bilinear: bool = True,
+                 base_c: int = 32,
+                 attention='ca'):
+        super().__init__()
+        self.in_channels = in_channels
+        self.num_classes = num_classes
+        self.bilinear = bilinear
+
+        self.in_conv = Conv(in_channels, base_c)
+        self.down1 = Down(base_c, base_c * 2)
+        self.down2 = Down(base_c * 2, base_c * 4)
+        self.down3 = Down(base_c * 4, base_c * 8)
+        factor = 2 if bilinear else 1
+        self.down4 = Down(base_c * 8, base_c * 16 // factor)
+        self.up1 = Up(base_c * 16, base_c * 8 // factor, bilinear)
+        self.up2 = Up(base_c * 8, base_c * 4 // factor, bilinear)
+        self.up3 = Up(base_c * 4, base_c * 2 // factor, bilinear)
+        self.up4 = Up(base_c * 2, base_c, bilinear)
+        self.out_conv = OutConv(base_c, num_classes)
+
+        if attention == 'ca':
+            self.att_1 = CoordAtt(base_c * 1)
+            self.att_2 = CoordAtt(base_c * 2)
+            self.att_3 = CoordAtt(base_c * 4)
+            self.att_4 = CoordAtt(base_c * 8)
+        elif attention == 'CBAM':
+            self.att_1 = CBAM(base_c * 1)
+            self.att_2 = CBAM(base_c * 1)
+            self.att_3 = CBAM(base_c * 2)
+            self.att_4 = CBAM(base_c * 4)
+
+    def forward(self, x: torch.Tensor):
+        x1 = self.in_conv(x)
+        x2 = self.down1(x1)
+        x3 = self.down2(x2)
+        x4 = self.down3(x3)
+        x5 = self.down4(x4)
+        x = self.up1(x5, x4)
+        x = self.att_4(x)
+        x = self.up2(x, x3)
+        x = self.att_3(x)
+        x = self.up3(x, x2)
+        x = self.att_2(x)
+        x = self.up4(x, x1)
+        x = self.att_1(x)
+        logits = self.out_conv(x)
+        return logits
+
 
 if __name__ == '__main__':
     # model = Unet0c3_v2_4(3,2,attention='S2')
     # model = Unet0c3_v3_1(3,2)
-    model = Unet0c3_v4(3,2)
+    model = Unet0c3_v5(3,2,attention='CBAM')
     model_test(model,(2,3,256,256),'shape')
