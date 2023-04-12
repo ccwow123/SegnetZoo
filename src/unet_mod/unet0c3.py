@@ -405,7 +405,6 @@ class Unet0c3_v3_1(nn.Module):
         return logits
 
 # v4 使用C3 n=2
-
 class Up_v4(nn.Module):
     def __init__(self, in_channels, out_channels, bilinear=True):
         super().__init__()
@@ -473,6 +472,7 @@ class Unet0c3_v4(nn.Module):
         logits = self.out_conv(x)
 
         return logits
+
 # v5 使用sppf，bilinear=True,attention='cbam'
 class Unet0c3_v5(nn.Module):
     def __init__(self,
@@ -525,6 +525,7 @@ class Unet0c3_v5(nn.Module):
         x = self.att_1(x)
         logits = self.out_conv(x)
         return logits
+
 # v6 使用sppf，bilinear=True,attention='cbam'嵌入up中
 class Up_v6(nn.Module):
     def __init__(self, in_channels, out_channels, bilinear=True):
