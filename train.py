@@ -358,6 +358,12 @@ def create_model(args,in_channels, num_classes, base_c=32):
         model = X_unet2(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
     elif args.model_name == "X_unet3":
         model = X_unet3(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
+    elif args.model_name == "X_unet4":
+        model = X_unet4(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
+    elif args.model_name == "X_unet5":
+        model = X_unet5(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
+    elif args.model_name == "X_unet6":
+        model = X_unet6(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
     else:
         raise ValueError("wrong model name")
     return initialize_weights(model)
