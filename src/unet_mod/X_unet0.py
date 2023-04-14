@@ -252,7 +252,7 @@ class X_unet3(nn.Module):
         self.num_classes = num_classes
         self.bilinear = bilinear
 
-        self.in_conv = Conv(in_channels, base_c)
+        self.in_conv = Down7(in_channels, base_c)
         self.down1 = Down(base_c, base_c * 2)
         self.down2 = Down(base_c * 2, base_c * 4)
         self.down3 = Down(base_c * 4, base_c * 8)
@@ -289,7 +289,7 @@ class X_unet4(nn.Module):
         self.num_classes = num_classes
         self.bilinear = bilinear
 
-        self.in_conv = Conv(in_channels, base_c)
+        self.in_conv = Down7(in_channels, base_c)
         self.down1 = Down(base_c, base_c * 2)
         self.down2 = Down(base_c * 2, base_c * 4)
         self.down3 = Down(base_c * 4, base_c * 8)
@@ -331,7 +331,7 @@ class X_unet5(nn.Module):
         self.num_classes = num_classes
         self.bilinear = bilinear
 
-        self.in_conv = Conv(in_channels, base_c)
+        self.in_conv = Down7(in_channels, base_c)
         self.down1 = Down(base_c, base_c * 2)
         self.down2 = Down(base_c * 2, base_c * 4)
         self.down3 = Down(base_c * 4, base_c * 8)
@@ -389,7 +389,7 @@ class X_unet6(nn.Module):
         self.att_4 = CBAM(base_c * 8)
 
     def forward(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
-        x1 = self.in_conv(x)
+        x1 = self.Down7(x)
         x2 = self.down1(x1)
         x3 = self.down2(x2)
         x4 = self.down3(x3)
