@@ -300,7 +300,7 @@ def create_model0(args,in_channels, num_classes, base_c=32):
     else:
         raise ValueError("wrong model name")
     return initialize_weights(model)
-def create_model(args,in_channels, num_classes, base_c=32):
+def create_model1(args,in_channels, num_classes, base_c=32):
     if args.model_name == "unet":
         model = UNet(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
     elif args.model_name == "Unet0":
@@ -371,6 +371,14 @@ def create_model(args,in_channels, num_classes, base_c=32):
     else:
         raise ValueError("wrong model name")
     return initialize_weights(model)
+def create_model(args, in_channels, num_classes,base_c=32):
+    if args.model_name == "X_unet_fin":
+        model = X_unet9(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
+
+    else:
+        raise ValueError("wrong model name")
+    return initialize_weights(model)
+
 def parse_args(model_name=None):
     import argparse
     parser = argparse.ArgumentParser(description="pytorch unet training")
@@ -412,5 +420,5 @@ def parse_args(model_name=None):
 # tensorboard --logdir logs
 # http://localhost:6006/
 if __name__ == '__main__':
-    args = parse_args('X_unet1')
+    args = parse_args('X_unet_fin')
     main(args)
