@@ -486,8 +486,6 @@ class X_unet8(nn.Module):
         logits = self.out_conv(x)
 
         return logits
-
-
 class PPM(nn.ModuleList):
     def __init__(self, pool_sizes, in_channels, out_channels):
         super(PPM, self).__init__()
@@ -529,10 +527,68 @@ class PSPHEAD(nn.Module):
         out = torch.cat(out, 1)
         out = self.final(out)
         return out
+# 9 使用新SPPF   SPPFCSPC
+#分组SPPCSPC 分组后参数量和计算量与原本差距不大，不知道效果怎么样
+class SPPCSPC_group(nn.Module):
+    def __init__(self, c1, c2, n=1, shortcut=False, g=1, e=0.5, k=(5, 9, 13)):
+        super(SPPCSPC_group, self).__init__()
+        c_ = int(2 * c2 * e)  # hidden channels
+        self.cv1 = Conv(c1, c_, 1, 1, g=4)
+        self.cv2 = Conv(c1, c_, 1, 1, g=4)
+        self.cv3 = Conv(c_, c_, 3, 1, g=4)
+        self.cv4 = Conv(c_, c_, 1, 1, g=4)
+        self.m = nn.ModuleList([nn.MaxPool2d(kernel_size=x, stride=1, padding=x // 2) for x in k])
+        self.cv5 = Conv(4 * c_, c_, 1, 1, g=4)
+        self.cv6 = Conv(c_, c_, 3, 1, g=4)
+        self.cv7 = Conv(2 * c_, c2, 1, 1, g=4)
 
+    def forward(self, x):
+        x1 = self.cv4(self.cv3(self.cv1(x)))
+        y1 = self.cv6(self.cv5(torch.cat([x1] + [m(x1) for m in self.m], 1)))
+        y2 = self.cv2(x)
+        return self.cv7(torch.cat((y1, y2), dim=1))
+
+class X_unet9(nn.Module):
+    def __init__(self,
+                 in_channels: int = 3,
+                 num_classes: int = 2,
+                 bilinear: bool = False,
+                 base_c: int = 32):
+        super().__init__()
+        self.in_channels = in_channels
+        self.num_classes = num_classes
+        self.bilinear = bilinear
+
+        self.in_conv = Down7(in_channels, base_c)
+        self.down1 = Down(base_c, base_c * 2)
+        self.down2 = Down(base_c * 2, base_c * 4)
+        self.down3 = Down(base_c * 4, base_c * 8)
+        factor = 2 if bilinear else 1
+        self.down4 = Down(base_c * 8, base_c * 16 // factor)
+        self.middle = SPPCSPC_group(512, 512)
+        self.up1 = Up(base_c * 16, base_c * 8 // factor, bilinear)
+        self.up2 = Up(base_c * 8, base_c * 4 // factor, bilinear)
+        self.up3 = Up(base_c * 4, base_c * 2 // factor, bilinear)
+        self.up4 = Up(base_c * 2, base_c, bilinear)
+        self.out_conv = OutConv(base_c, num_classes)
+
+    def forward(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
+        x1 = self.in_conv(x)
+        x2 = self.down1(x1)
+        x3 = self.down2(x2)
+        x4 = self.down3(x3)
+        x5 = self.down4(x4)
+        x5 = self.middle(x5)
+        x = self.up1(x5, x4)
+        x = self.up2(x, x3)
+        x = self.up3(x, x2)
+        x = self.up4(x, x1)
+        logits = self.out_conv(x)
+
+        return logits
 
 if __name__ == '__main__':
-    model = X_unet0(3,2)
+    model = X_unet9(3,2)
     model_test(model,(2,3,256,256),'params')
     model_test(model,(2,3,256,256),'shape')
 
