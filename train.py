@@ -364,6 +364,8 @@ def create_model(args,in_channels, num_classes, base_c=32):
         model = X_unet5(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
     elif args.model_name == "X_unet6":
         model = X_unet6(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
+    elif args.model_name == "X_unet7":
+        model = X_unet7(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
     else:
         raise ValueError("wrong model name")
     return initialize_weights(model)
@@ -382,8 +384,8 @@ def parse_args(model_name=None):
     # exclude background
     parser.add_argument("--num-classes", default=1, type=int)
     parser.add_argument("--device", default="cuda", help="training device")
-    parser.add_argument("--batch-size", default=2, type=int)
-    parser.add_argument("--epochs", default=10, type=int, metavar="N",
+    parser.add_argument("--batch-size", default=6, type=int)
+    parser.add_argument("--epochs", default=100, type=int, metavar="N",
                         help="number of total epochs to train")
 
     parser.add_argument('--lr', default=1e-4, type=float, help='initial learning rate')
@@ -392,7 +394,7 @@ def parse_args(model_name=None):
     parser.add_argument('--weight-decay', default=1e-4, type=float,
                         metavar='W', help='weight decay (default: 1e-4)',
                         dest='weight_decay')
-    parser.add_argument('--print-freq', default=20, type=int, help='print frequency')
+    parser.add_argument('--print-freq', default=40, type=int, help='print frequency')
     parser.add_argument('--resume', default='', help='resume from checkpoint')
     parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
                         help='start epoch')
