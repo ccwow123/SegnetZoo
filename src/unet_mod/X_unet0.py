@@ -11,7 +11,7 @@ class Down(nn.Sequential):
         mid = out_channels // 2
         super(Down, self).__init__(
             Conv(in_channels, mid,k=3, s=2),
-            C3(mid, out_channels,n=1)
+            C3(mid, out_channels,n=3)
         )
 
 
@@ -408,7 +408,7 @@ class Down7(nn.Sequential):
         mid = out_channels // 2
         super(Down7, self).__init__(
             Conv(in_channels, mid,k=3, s=1),
-            C3(mid, out_channels,n=1)
+            C3(mid, out_channels,n=3)
         )
 class X_unet7(nn.Module):
     def __init__(self,
