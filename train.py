@@ -373,8 +373,35 @@ def create_model1(args,in_channels, num_classes, base_c=32):
     return initialize_weights(model)
 def create_model(args, in_channels, num_classes,base_c=32):
     if args.model_name == "X_unet_fin":
-        model = X_unet9(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
+        model = X_unet_fin(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
+    elif args.model_name == "X_unet_fin_1":
+        model = X_unet_fin_1(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
+    elif args.model_name == "deeplabV3p":
+        model = deeplabv3_resnet50(num_classes=num_classes, pretrained_backbone=False)
+    elif args.model_name == "lraspp_mobilenetv3_large":
+        model = lraspp_mobilenetv3_large(num_classes=num_classes, pretrain_backbone=False)
+    elif args.model_name == "Unet_res":
+        model = Unet_EX(in_channels, num_classes, base_c=base_c, block_type='resnet')
+    elif args.model_name == "Unet_resnest":
+        model = Unet_EX(in_channels, num_classes, base_c=base_c, block_type='resnest')
 
+
+    elif args.model_name == "Unet0":
+        model = Unet0(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
+    elif args.model_name == "Unet_res":
+        model = Unet_EX(in_channels, num_classes, base_c=base_c, block_type='resnet')
+    elif args.model_name == "X_unet3":
+        model = X_unet3(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
+    elif args.model_name == "X_unet4":
+        model = X_unet4(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
+    elif args.model_name == "X_unet5":
+        model = X_unet5(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
+    elif args.model_name == "X_unet6":
+        model = X_unet6(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
+    elif args.model_name == "X_unet7":
+        model = X_unet7(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
+    elif args.model_name == "X_unet9":
+        model = X_unet9(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
     else:
         raise ValueError("wrong model name")
     return initialize_weights(model)
@@ -398,10 +425,10 @@ def parse_args(model_name=None):
     parser.add_argument("--epochs", default=10, type=int, metavar="N",
                         help="number of total epochs to train")
 
-    parser.add_argument('--lr', default=1e-4, type=float, help='initial learning rate')
+    parser.add_argument('--lr', default=3e-4, type=float, help='initial learning rate')
     parser.add_argument('--momentum', default=0.9, type=float, metavar='M',
                         help='momentum')
-    parser.add_argument('--weight-decay', default=1e-4, type=float,
+    parser.add_argument('--weight-decay', default=0, type=float,
                         metavar='W', help='weight decay (default: 1e-4)',
                         dest='weight_decay')
     parser.add_argument('--print-freq', default=40, type=int, help='print frequency')
