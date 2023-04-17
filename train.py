@@ -376,6 +376,9 @@ def create_model(args, in_channels, num_classes,base_c=32):
         model = X_unet_fin(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
     elif args.model_name == "X_unet_fin_1":
         model = X_unet_fin_1(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
+    elif args.model_name == "X_unet_fin_2":
+        model = X_unet_fin_2(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
+
     elif args.model_name == "deeplabV3p":
         model = deeplabv3_resnet50(num_classes=num_classes, pretrained_backbone=False)
     elif args.model_name == "lraspp_mobilenetv3_large":
