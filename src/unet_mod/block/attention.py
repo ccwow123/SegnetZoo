@@ -245,20 +245,37 @@ class CAM_Module(nn.Module):
         return out
 
 # SiLU CA
+#为same卷积或same池化自动扩充
+def autopad(k, p=None):  # kernel, padding
+    # Pad to 'same'
+    if p is None:
+        p = k // 2 if isinstance(k, int) else [x // 2 for x in k]  # auto-pad
+    return p
+class Conv(nn.Module):
+    # Standard convolution
+    def __init__(self, c1, c2, k=1, s=1, p=None, g=1, act=True):  # ch_in, ch_out, 卷积核kernel, 步长stride, padding, groups
+        super().__init__()
+        self.conv = nn.Conv2d(c1, c2, k, s, autopad(k, p), groups=g, bias=False)
+        self.bn = nn.BatchNorm2d(c2)
+        self.act = nn.SiLU() if act is True else (act if isinstance(act, nn.Module) else nn.Identity())
+
+    def forward(self, x):#正向传播
+        return self.act(self.bn(self.conv(x)))
 class SCA(nn.Module):
     def __init__(self, inp, reduction=32):
         super().__init__()
+        self.conv_in = Conv(inp, inp, 1, 1)
         self.channel_attention = ChannelAttentionModule(inp)
         self.pool_h = nn.AdaptiveAvgPool2d((None, 1))
         self.pool_w = nn.AdaptiveAvgPool2d((1, None))
         mip = max(8, inp // reduction)
         self.conv1 = nn.Conv2d(inp, mip, kernel_size=1, stride=1, padding=0)
         self.bn1 = nn.BatchNorm2d(mip)
-        self.act = h_swish()
+        self.act = nn.SiLU()
         self.conv_h = nn.Conv2d(mip, inp, kernel_size=1, stride=1, padding=0)
         self.conv_w = nn.Conv2d(mip, inp, kernel_size=1, stride=1, padding=0)
     def forward(self, x):
-        identity = self.channel_attention(x)
+        identity = self.conv_in(x)
         n, c, h, w = x.size()
         #c*1*W
         x_h = self.pool_h(x)
@@ -278,7 +295,7 @@ class SCA(nn.Module):
         return out
 
 
-# input = torch.randn(1, 16, 32, 32)
-# net=SCA(16)
-# out = net(input)
-# print(out.shape)
+input = torch.randn(1, 16, 32, 32)
+net=SCA(16)
+out = net(input)
+print(out.shape)
