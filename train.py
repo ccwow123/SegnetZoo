@@ -387,24 +387,8 @@ def create_model(args, in_channels, num_classes,base_c=32):
         model = Unet_EX(in_channels, num_classes, base_c=base_c, block_type='resnet')
     elif args.model_name == "Unet_resnest":
         model = Unet_EX(in_channels, num_classes, base_c=base_c, block_type='resnest')
-
-
-    elif args.model_name == "Unet0":
-        model = Unet0(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
-    elif args.model_name == "Unet_res":
-        model = Unet_EX(in_channels, num_classes, base_c=base_c, block_type='resnet')
-    elif args.model_name == "X_unet3":
-        model = X_unet3(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
-    elif args.model_name == "X_unet4":
-        model = X_unet4(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
-    elif args.model_name == "X_unet5":
-        model = X_unet5(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
-    elif args.model_name == "X_unet6":
-        model = X_unet6(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
-    elif args.model_name == "X_unet7":
-        model = X_unet7(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
-    elif args.model_name == "X_unet9":
-        model = X_unet9(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
+    elif args.model_name == "FCN":
+        model = fcn_resnet50(aux=False, num_classes=num_classes)
     else:
         raise ValueError("wrong model name")
     return initialize_weights(model)
@@ -428,7 +412,7 @@ def parse_args(model_name=None):
     parser.add_argument("--epochs", default=10, type=int, metavar="N",
                         help="number of total epochs to train")
 
-    parser.add_argument('--lr', default=3e-4, type=float, help='initial learning rate')
+    parser.add_argument('--lr', default=3e-5, type=float, help='initial learning rate')
     parser.add_argument('--momentum', default=0.9, type=float, metavar='M',
                         help='momentum')
     parser.add_argument('--weight-decay', default=0, type=float,
@@ -450,5 +434,5 @@ def parse_args(model_name=None):
 # tensorboard --logdir logs
 # http://localhost:6006/
 if __name__ == '__main__':
-    args = parse_args('X_unet_fin')
+    args = parse_args('FCN')
     main(args)

@@ -295,7 +295,7 @@ class SCA(nn.Module):
         return out
 
 
-input = torch.randn(1, 16, 32, 32)
-net=SCA(16)
-out = net(input)
-print(out.shape)
+# input = torch.randn(1, 16, 32, 32)
+# net=SCA(16)
+# out = net(input)
+# print(out.shape)
