@@ -414,7 +414,7 @@ def parse_args(model_name=None):
     parser.add_argument("--epochs", default=10, type=int, metavar="N",
                         help="number of total epochs to train")
 
-    parser.add_argument('--lr', default=3e-5, type=float, help='initial learning rate')
+    parser.add_argument('--lr', default=3e-4, type=float, help='initial learning rate')
     parser.add_argument('--momentum', default=0.9, type=float, metavar='M',
                         help='momentum')
     parser.add_argument('--weight-decay', default=0, type=float,
