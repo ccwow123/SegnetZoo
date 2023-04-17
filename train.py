@@ -389,6 +389,8 @@ def create_model(args, in_channels, num_classes,base_c=32):
         model = Unet_EX(in_channels, num_classes, base_c=base_c, block_type='resnest')
     elif args.model_name == "FCN":
         model = fcn_resnet50(aux=False, num_classes=num_classes)
+    elif args.model_name == "SegNet":
+        model = SegNet(num_classes=num_classes)
     else:
         raise ValueError("wrong model name")
     return initialize_weights(model)
@@ -434,5 +436,5 @@ def parse_args(model_name=None):
 # tensorboard --logdir logs
 # http://localhost:6006/
 if __name__ == '__main__':
-    args = parse_args('FCN')
+    args = parse_args('SegNet')
     main(args)
