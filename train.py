@@ -78,7 +78,11 @@ class SegmentationPresetTrain:
         if hflip_prob > 0:
             trans.append(T.RandomHorizontalFlip(hflip_prob))
         trans.extend([
-            T.CenterCrop(crop_size),
+            T.RandomCrop(crop_size),
+            T.RandomHorizontalFlip(0.5),
+            T.RandomVerticalFlip(0.5),
+            T.RandomRotation(90),
+            T.ColorJitter(),
             T.ToTensor(),
             T.Normalize(mean=mean, std=std),
         ])
@@ -391,6 +395,9 @@ def create_model(args, in_channels, num_classes,base_c=32):
         model = fcn_resnet50(aux=False, num_classes=num_classes)
     elif args.model_name == "SegNet":
         model = SegNet(num_classes=num_classes)
+    elif args.model_name == "PSPNet":
+        model = get_psp_resnet50_voc(num_classes=num_classes)
+
     else:
         raise ValueError("wrong model name")
     return initialize_weights(model)
@@ -402,7 +409,7 @@ def parse_args(model_name=None):
     parser.add_argument("--model_name", default=model_name, help="模型名称")
     parser.add_argument("--optimizer", default='adam',choices=['sgd','adam'] ,help="优化器")
     parser.add_argument("--base_size", default=256, type=int, help="图片缩放大小")
-    parser.add_argument("--crop_size", default=256,  type=int, help="图片裁剪大小")
+    parser.add_argument("--crop_size", default=240,  type=int, help="图片裁剪大小")
     parser.add_argument("--base_c", default=32, type=int, help="uent的基础通道数")
     parser.add_argument('--save_method',default='all' ,choices=['all','dict'],help='保存模型的方式')
 
@@ -436,5 +443,5 @@ def parse_args(model_name=None):
 # tensorboard --logdir logs
 # http://localhost:6006/
 if __name__ == '__main__':
-    args = parse_args('SegNet')
+    args = parse_args('X_unet_fin')
     main(args)

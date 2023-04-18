@@ -116,3 +116,23 @@ class Resize(object):
             target = F.resize(target, self.size)
 
         return image, target
+# 随机旋转
+class RandomRotation(object):
+    def __init__(self, degrees, interpolation=T.InterpolationMode.BILINEAR, expand=False, center=None, fill=None):
+        self.degrees = degrees
+        self.interpolation = interpolation
+        self.expand = expand
+        self.center = center
+        self.fill = fill
+    def __call__(self, image, target):
+        angle = random.uniform(-self.degrees, self.degrees)
+        image = F.rotate(image, angle, self.interpolation, self.expand, self.center, self.fill)
+        target = F.rotate(target, angle, self.interpolation, self.expand, self.center, self.fill)
+        return image, target
+# 色彩抖动
+class ColorJitter(object):
+    def __init__(self):
+        self.color_jitter = T.ColorJitter(brightness=0.5, contrast=0.5, saturation=0.5, hue=0.5)
+    def __call__(self, image, target):
+        image = self.color_jitter(image)
+        return image, target
