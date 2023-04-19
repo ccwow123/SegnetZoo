@@ -102,7 +102,8 @@ class X_unet_fin(nn.Module):
         self.down3 = Down_fine(base_c * 4, base_c * 8)
         self.down4 = Down_fine(base_c * 8, base_c * 16 )
 
-        self.middle = SPPCSPC_group( base_c * 16,  base_c * 16)
+        # self.middle = SPPCSPC_group( base_c * 16,  base_c * 16)
+        self.middle = SPPF( base_c * 16,  base_c * 16)
 
         self.up1 = Up_fin(base_c * 16, base_c * 8 )
         self.up2 = Up_fin(base_c * 8, base_c * 4 )
@@ -206,7 +207,7 @@ class X_unet_fin_2(nn.Module):
         return out
 
 if __name__ == '__main__':
-    model = X_unet_fin_2(3,2)
+    model = X_unet_fin(3,2)
     model_test(model,(2,3,256,256),'params')
     model_test(model,(2,3,256,256),'shape')
 
