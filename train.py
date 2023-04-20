@@ -78,11 +78,11 @@ class SegmentationPresetTrain:
         if hflip_prob > 0:
             trans.append(T.RandomHorizontalFlip(hflip_prob))
         trans.extend([
-            T.RandomCrop(crop_size),
+            T.CenterCrop(crop_size),
             T.RandomHorizontalFlip(0.5),
             T.RandomVerticalFlip(0.5),
-            T.RandomRotation(90),
-            T.ColorJitter(),
+            # T.RandomRotation(90),
+            # T.ColorJitter(),
             T.ToTensor(),
             T.Normalize(mean=mean, std=std),
         ])
@@ -405,6 +405,16 @@ def create_model(args, in_channels, num_classes,base_c=32):
     elif args.model_name == "X_unet_fin_am":
         model = X_unet_fin_am(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
 
+    elif args.model_name == "X_unet_fin_noall":
+        model = X_unet_fin_noall(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
+    elif args.model_name == "X_unet_fin_DA":
+        model = X_unet_fin_DA(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
+    elif args.model_name == "X_unet_fin_CARAFE":
+        model = X_unet_fin_CARAFE(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
+    elif args.model_name == "X_unet_fin_SCSPP":
+        model = X_unet_fin_SCSPP(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
+    elif args.model_name == "X_unet_fin_all":
+        model = X_unet_fin_all(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
 
     else:
         raise ValueError("wrong model name")
@@ -451,5 +461,5 @@ def parse_args(model_name=None):
 # tensorboard --logdir logs
 # http://localhost:6006/
 if __name__ == '__main__':
-    args = parse_args('X_unet_fin_am')
+    args = parse_args('X_unet_fin_all')
     main(args)

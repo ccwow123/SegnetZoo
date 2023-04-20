@@ -5,6 +5,29 @@ import torch.nn as nn
 from utils.mytools import model_test
 import torch.nn.functional as F
 from src.unet_mod.block import C3,Conv,SPPF,SimAM,CoordAtt,ASPP,CBAM,BasicRFB,SCA
+class Up(nn.Module):
+    def __init__(self, in_channels, out_channels, bilinear=False):
+        super(Up, self).__init__()
+        if bilinear:
+            self.up = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
+            self.conv = C3(in_channels, out_channels)
+        else:
+            self.up = nn.ConvTranspose2d(in_channels, in_channels // 2, kernel_size=2, stride=2)
+            self.conv = C3(in_channels, out_channels)
+
+    def forward(self, x1: torch.Tensor, x2: torch.Tensor) -> torch.Tensor:
+        x1 = self.up(x1)
+        # # [N, C, H, W]
+        # diff_y = x2.size()[2] - x1.size()[2]
+        # diff_x = x2.size()[3] - x1.size()[3]
+        #
+        # # padding_left, padding_right, padding_top, padding_bottom
+        # x1 = F.pad(x1, [diff_x // 2, diff_x - diff_x // 2,
+        #                 diff_y // 2, diff_y - diff_y // 2])
+
+        x = torch.cat([x2, x1], dim=1)
+        x = self.conv(x)
+        return x
 class CARAFE(nn.Module):
     def __init__(self, inC, outC, kernel_size=3, up_factor=2):
         super(CARAFE, self).__init__()
@@ -87,74 +110,26 @@ class OutConv(nn.Sequential):
         super(OutConv, self).__init__(
             nn.Conv2d(in_channels, num_classes, kernel_size=1)
         )
-# 注意力在左encoder
-class X_unet_fin_al(nn.Module):
+
+# 消融1 无任何提升
+class X_unet_fin_noall(nn.Module):
     def __init__(self,
                  in_channels: int = 3,
                  num_classes: int = 2,
                  base_c: int = 32):
         super().__init__()
-        self.in_channels = in_channels
-        self.num_classes = num_classes
         self.in_conv = Down_fine(in_channels, base_c,s=1)
         self.down1 = Down_fine(base_c, base_c * 2)
         self.down2 = Down_fine(base_c * 2, base_c * 4)
         self.down3 = Down_fine(base_c * 4, base_c * 8)
-
         self.down4 = Down_fine(base_c * 8, base_c * 16 )
-        self.middle = SPPF(base_c * 16,  base_c * 16)
 
-        self.up1 = Up_fin(base_c * 16, base_c * 8 )
-        self.up2 = Up_fin(base_c * 8, base_c * 4 )
-        self.up3 = Up_fin(base_c * 4, base_c * 2 )
-        self.up4 = Up_fin(base_c * 2, base_c)
+        self.up1 = Up(base_c * 16, base_c * 8 )
+        self.up2 = Up(base_c * 8, base_c * 4 )
+        self.up3 = Up(base_c * 4, base_c * 2 )
+        self.up4 = Up(base_c * 2, base_c)
         self.out_conv = OutConv(base_c, num_classes)
 
-        self.att1 = SCA(base_c)
-        self.att2 = SCA(base_c * 2)
-        self.att3 = SCA(base_c * 4)
-        self.att4 = SCA(base_c * 8)
-
-    def forward(self, x):
-        x0 = self.in_conv(x)
-        x1 = self.down1(self.att1(x0))
-        x2 = self.down2(self.att2(x1))
-        x3 = self.down3(self.att3(x2))
-        x4 = self.down4(self.att4(x3))
-        x5 = self.middle(x4)
-        x = self.up1(x5, x3)
-        x = self.up2(x, x2)
-        x = self.up3(x, x1)
-        x = self.up4(x, x0)
-        out = self.out_conv(x)
-        return out
-# 注意力在右decoder
-class X_unet_fin_ar(nn.Module):
-    def __init__(self,
-                 in_channels: int = 3,
-                 num_classes: int = 2,
-                 base_c: int = 32):
-        super().__init__()
-        self.in_channels = in_channels
-        self.num_classes = num_classes
-        self.in_conv = Down_fine(in_channels, base_c,s=1)
-        self.down1 = Down_fine(base_c, base_c * 2)
-        self.down2 = Down_fine(base_c * 2, base_c * 4)
-        self.down3 = Down_fine(base_c * 4, base_c * 8)
-
-        self.down4 = Down_fine(base_c * 8, base_c * 16 )
-        self.middle = SPPF(base_c * 16,  base_c * 16)
-
-        self.up1 = Up_fin(base_c * 16, base_c * 8 )
-        self.up2 = Up_fin(base_c * 8, base_c * 4 )
-        self.up3 = Up_fin(base_c * 4, base_c * 2 )
-        self.up4 = Up_fin(base_c * 2, base_c)
-        self.out_conv = OutConv(base_c, num_classes)
-
-        self.att1 = SCA(base_c)
-        self.att2 = SCA(base_c * 2)
-        self.att3 = SCA(base_c * 4)
-        self.att4 = SCA(base_c * 8)
 
     def forward(self, x):
         x0 = self.in_conv(x)
@@ -162,16 +137,85 @@ class X_unet_fin_ar(nn.Module):
         x2 = self.down2(x1)
         x3 = self.down3(x2)
         x4 = self.down4(x3)
-        x5 = self.middle(x4)
-        x = self.att4(self.up1(x5, x3))
-        x = self.att3(self.up2(x, x2))
-        x = self.att2(self.up3(x, x1))
-        x = self.att1(self.up4(x, x0))
+        x = self.up1(x4, x3)
+        x = self.up2(x, x2)
+        x = self.up3(x, x1)
+        x = self.up4(x, x0)
         out = self.out_conv(x)
         return out
 
-# 注意力在中间
-class X_unet_fin_am(nn.Module):
+# 消融2 加入DA
+class X_unet_fin_DA(nn.Module):
+    def __init__(self,
+                 in_channels: int = 3,
+                 num_classes: int = 2,
+                 base_c: int = 32):
+        super().__init__()
+        self.in_conv = Down_fine(in_channels, base_c,s=1)
+        self.down1 = Down_fine(base_c, base_c * 2)
+        self.down2 = Down_fine(base_c * 2, base_c * 4)
+        self.down3 = Down_fine(base_c * 4, base_c * 8)
+        self.down4 = Down_fine(base_c * 8, base_c * 16 )
+
+        self.up1 = Up(base_c * 16, base_c * 8 )
+        self.up2 = Up(base_c * 8, base_c * 4 )
+        self.up3 = Up(base_c * 4, base_c * 2 )
+        self.up4 = Up(base_c * 2, base_c)
+        self.out_conv = OutConv(base_c, num_classes)
+
+        self.att1 = SCA(base_c)
+        self.att2 = SCA(base_c * 2)
+        self.att3 = SCA(base_c * 4)
+        self.att4 = SCA(base_c * 8)
+    def forward(self, x):
+        x0 = self.in_conv(x)
+        x1 = self.down1(x0)
+        x2 = self.down2(x1)
+        x3 = self.down3(x2)
+        x4 = self.down4(x3)
+        x = self.up1(x4, self.att4(x3))
+        x = self.up2(x, self.att3(x2))
+        x = self.up3(x, self.att2(x1))
+        x = self.up4(x, self.att1(x0))
+        out = self.out_conv(x)
+        return out
+
+# 消融3 加入SCSPP
+class X_unet_fin_SCSPP(nn.Module):
+    def __init__(self,
+                 in_channels: int = 3,
+                 num_classes: int = 2,
+                 base_c: int = 32):
+        super().__init__()
+        self.in_conv = Down_fine(in_channels, base_c,s=1)
+        self.down1 = Down_fine(base_c, base_c * 2)
+        self.down2 = Down_fine(base_c * 2, base_c * 4)
+        self.down3 = Down_fine(base_c * 4, base_c * 8)
+        self.down4 = Down_fine(base_c * 8, base_c * 16 )
+        self.middle = nn.Sequential(SPPF(base_c * 16,  base_c * 16),Conv(base_c * 16, base_c * 16))
+        self.up1 = Up(base_c * 16, base_c * 8 )
+        self.up2 = Up(base_c * 8, base_c * 4 )
+        self.up3 = Up(base_c * 4, base_c * 2 )
+        self.up4 = Up(base_c * 2, base_c)
+        self.out_conv = OutConv(base_c, num_classes)
+
+
+    def forward(self, x):
+        x0 = self.in_conv(x)
+        x1 = self.down1(x0)
+        x2 = self.down2(x1)
+        x3 = self.down3(x2)
+        x4 = self.down4(x3)
+        x4 = self.middle(x4)
+        x = self.up1(x4, x3)
+        x = self.up2(x, x2)
+        x = self.up3(x, x1)
+        x = self.up4(x, x0)
+        out = self.out_conv(x)
+        return out
+
+# 消融4 加入CARAFE
+class X_unet_fin_CARAFE(nn.Module):
     def __init__(self,
                  in_channels: int = 3,
                  num_classes: int = 2,
@@ -183,9 +227,44 @@ class X_unet_fin_am(nn.Module):
         self.down1 = Down_fine(base_c, base_c * 2)
         self.down2 = Down_fine(base_c * 2, base_c * 4)
         self.down3 = Down_fine(base_c * 4, base_c * 8)
-
         self.down4 = Down_fine(base_c * 8, base_c * 16 )
-        self.middle = SPPF(base_c * 16,  base_c * 16)
+
+        self.up1 = Up_fin(base_c * 16, base_c * 8 )
+        self.up2 = Up_fin(base_c * 8, base_c * 4 )
+        self.up3 = Up_fin(base_c * 4, base_c * 2 )
+        self.up4 = Up_fin(base_c * 2, base_c)
+        self.out_conv = OutConv(base_c, num_classes)
+
+    def forward(self, x):
+        x0 = self.in_conv(x)
+        x1 = self.down1(x0)
+        x2 = self.down2(x1)
+        x3 = self.down3(x2)
+        x4 = self.down4(x3)
+        x = self.up1(x4, x3)
+        x = self.up2(x, x2)
+        x = self.up3(x, x1)
+        x = self.up4(x, x0)
+        out = self.out_conv(x)
+        return out
+
+# 消融5 加入全部
+class X_unet_fin_all(nn.Module):
+    def __init__(self,
+                 in_channels: int = 3,
+                 num_classes: int = 2,
+                 base_c: int = 32):
+        super().__init__()
+        self.in_channels = in_channels
+        self.num_classes = num_classes
+        self.in_conv = Down_fine(in_channels, base_c,s=1)
+        self.down1 = Down_fine(base_c, base_c * 2)
+        self.down2 = Down_fine(base_c * 2, base_c * 4)
+        self.down3 = Down_fine(base_c * 4, base_c * 8)
+        self.down4 = Down_fine(base_c * 8, base_c * 16 )
+
+        # self.middle = SPPCSPC_group( base_c * 16,  base_c * 16)
+        self.middle = nn.Sequential(SPPF(base_c * 16,  base_c * 16),Conv(base_c * 16, base_c * 16))
 
         self.up1 = Up_fin(base_c * 16, base_c * 8 )
         self.up2 = Up_fin(base_c * 8, base_c * 4 )
@@ -211,8 +290,9 @@ class X_unet_fin_am(nn.Module):
         x = self.up4(x, self.att1(x0))
         out = self.out_conv(x)
         return out
+
 if __name__ == '__main__':
-    model = X_unet_fin_am(3,2)
+    model = X_unet_fin_all(3,2)
     model_test(model,(2,3,256,256),'params')
     model_test(model,(2,3,256,256),'shape')
 
