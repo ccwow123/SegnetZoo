@@ -194,9 +194,12 @@ def main(args):
         # with open(log_dir + '/train_log.csv', 'a', newline='') as csvfile:
         #     writer = csv.writer(csvfile)
         #     writer.writerow([epoch, mean_loss, lr])
+        header_list = ["epoch", "dice", "miou", "mpa"]
         with open(log_dir + '/val_log.csv', 'a', newline='') as csvfile:
-            writer = csv.writer(csvfile)
-            writer.writerow([epoch, dice, confmat["miou"], confmat["mpa"]])
+            writer = csv.DictWriter(csvfile, fieldnames=header_list)
+            if epoch == 0:
+                writer.writeheader()
+            writer.writerow({"epoch": epoch*100, "dice": dice, "miou": confmat["miou"], "mpa": confmat["mpa"]})
 
         # -----------------------保存模型-----------------------
         if args.save_best is True:
