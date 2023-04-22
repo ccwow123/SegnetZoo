@@ -9,7 +9,7 @@ from src import UNet
 from train_utils import train_one_epoch, evaluate, create_lr_scheduler
 from utils.my_dataset import VOCSegmentation
 from utils import transforms as T
-
+import csv
 from torch.utils.tensorboard import SummaryWriter
 from utils.mytools import calculater_1,Time_calculater
 from src.unet_mod import *
@@ -82,7 +82,7 @@ class SegmentationPresetTrain:
             T.RandomHorizontalFlip(0.5),
             T.RandomVerticalFlip(0.5),
             # T.RandomRotation(90),
-            # T.ColorJitter(),
+            T.ColorJitter(),
             T.ToTensor(),
             T.Normalize(mean=mean, std=std),
         ])
@@ -185,11 +185,19 @@ def main(args):
         # -----------------------保存tensorboard-----------------------
         tb.add_scalar("train/loss", mean_loss, epoch)
         tb.add_scalar("train/lr", lr, epoch)
-        tb.add_scalar("val/dice loss", 1-dice, epoch)
+        tb.add_scalar("val/dice loss", dice, epoch)
         tb.add_scalar("val/miou", confmat["miou"], epoch)
-        tb.add_scalar("val/acc", confmat["pa"], epoch)
+        tb.add_scalar("val/acc", confmat["mpa"], epoch)
         # 保存网路结构
         tb.add_graph(model, torch.rand(1, 3, args.base_size, args.base_size).to(device))
+        # 写入到csv文件
+        # with open(log_dir + '/train_log.csv', 'a', newline='') as csvfile:
+        #     writer = csv.writer(csvfile)
+        #     writer.writerow([epoch, mean_loss, lr])
+        with open(log_dir + '/val_log.csv', 'a', newline='') as csvfile:
+            writer = csv.writer(csvfile)
+            writer.writerow([epoch, dice, confmat["miou"], confmat["mpa"]])
+
         # -----------------------保存模型-----------------------
         if args.save_best is True:
             if best_dice < dice:
@@ -383,6 +391,8 @@ def create_model(args, in_channels, num_classes,base_c=32):
     elif args.model_name == "X_unet_fin_2":
         model = X_unet_fin_2(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
 
+    elif args.model_name == "Unet0":
+        model = Unet0(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
     elif args.model_name == "deeplabV3p":
         model = deeplabv3_resnet50(num_classes=num_classes, pretrained_backbone=False)
     elif args.model_name == "lraspp_mobilenetv3_large":
@@ -416,6 +426,10 @@ def create_model(args, in_channels, num_classes,base_c=32):
     elif args.model_name == "X_unet_fin_all":
         model = X_unet_fin_all(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
 
+    elif args.model_name == "Unet_mobile_s":
+        model = Unet_lite(in_channels, num_classes, base_c=base_c,block_type='mobile_s')
+    elif args.model_name == "Unet_shuffle":
+        model = Unet_lite(in_channels, num_classes, base_c=base_c, block_type='shuffle')
     else:
         raise ValueError("wrong model name")
     return initialize_weights(model)
