@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 from utils.mytools import model_test
 import torch.nn.functional as F
-from src.unet_mod.block import C3,Conv,SPPF,SimAM,CoordAtt,ASPP,CBAM,BasicRFB,SCA
+from src.unet_mod.block import C3,Conv,SPPF,SimAM,CoordAtt,ASPP,CBAM,BasicRFB,SCA,SCA2
 class CARAFE(nn.Module):
     def __init__(self, inC, outC, kernel_size=3, up_factor=2):
         super(CARAFE, self).__init__()
@@ -205,9 +205,51 @@ class X_unet_fin_2(nn.Module):
         x = self.up4(x, x0)
         out = self.out_conv(x)
         return out
+# 3.自创注意力SCA改进
+class X_unet_fin_3(nn.Module):
+    def __init__(self,
+                 in_channels: int = 3,
+                 num_classes: int = 2,
+                 base_c: int = 32):
+        super().__init__()
+        self.in_channels = in_channels
+        self.num_classes = num_classes
+        self.in_conv = Down_fine(in_channels, base_c,s=1)
+        self.down1 = Down_fine(base_c, base_c * 2)
+        self.down2 = Down_fine(base_c * 2, base_c * 4)
+        self.down3 = Down_fine(base_c * 4, base_c * 8)
 
+        self.down4 = Down_fine(base_c * 8, base_c * 16 )
+        self.middle = SPPF(base_c * 16,  base_c * 16)
+        self.down5 = Down_fine(base_c * 16, base_c * 16,s=1)
+
+        self.up1 = Up_fin(base_c * 16, base_c * 8 )
+        self.up2 = Up_fin(base_c * 8, base_c * 4 )
+        self.up3 = Up_fin(base_c * 4, base_c * 2 )
+        self.up4 = Up_fin(base_c * 2, base_c)
+        self.out_conv = OutConv(base_c, num_classes)
+
+        self.att1 = SCA2(base_c)
+        self.att2 = SCA2(base_c * 2)
+        self.att3 = SCA2(base_c * 4)
+        self.att4 = SCA2(base_c * 8)
+
+    def forward(self, x):
+        x0 = self.in_conv(x)
+        x1 = self.down1(self.att1(x0))
+        x2 = self.down2(self.att2(x1))
+        x3 = self.down3(self.att3(x2))
+        x4 = self.down4(self.att4(x3))
+        x5 = self.middle(x4)
+        x5 = self.down5(x5)
+        x = self.up1(x5, x3)
+        x = self.up2(x, x2)
+        x = self.up3(x, x1)
+        x = self.up4(x, x0)
+        out = self.out_conv(x)
+        return out
 if __name__ == '__main__':
-    model = X_unet_fin(3,2)
+    model = X_unet_fin_3(3,2)
     model_test(model,(2,3,256,256),'params')
     model_test(model,(2,3,256,256),'shape')
 

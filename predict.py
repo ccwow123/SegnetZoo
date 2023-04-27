@@ -65,7 +65,8 @@ def main(args):
                                   transforms=None,
                                   txt_name="test.txt")
     pre_imgs,gt = pre_dataset.images,pre_dataset.masks
-    data_transform = transforms.Compose([transforms.Resize(args.img_size),
+    data_transform = transforms.Compose([
+        transforms.Resize(args.img_size),
                                          transforms.ToTensor(),
                                          transforms.Normalize(mean=(0.485, 0.456, 0.406),
                                                               std=(0.229, 0.224, 0.225))])
@@ -79,6 +80,7 @@ def main(args):
         img = Image.open(imgpath)
         # 保存原大小
         ori_w, ori_h = img.size
+        img = img.resize((args.img_size, args.img_size))
         img = data_transform(img)
         img = torch.unsqueeze(img, dim=0)
         with torch.no_grad():
@@ -124,16 +126,18 @@ def main(args):
             ori_img = cv2.imread(imgpath)
             result_img = contours_process(ori_img, pred_img, args.label)
             cv2.imwrite(img_out_path, result_img)
-    print("平均时间: {:.4f}s".format(sum(time_list)/len(time_list)))
+    print("平均时间: {:.3f}ms".format(sum(time_list)/len(time_list)*100))
+    #求FPS
+    print("FPS: {:.4f}".format(1/(sum(time_list)/len(time_list))))
 
 def parse_args():
     parser = argparse.ArgumentParser(description="pytorch segnets training")
     # 主要
-    parser.add_argument("--weights_path", default=r'logs/04-05_16-12-15-Unet_c2f/best_model.pth', type=str, help="权重路径")
-    parser.add_argument("--data_path", default=r'D:\Files\_datasets\Dataset-reference\VOC_E_skew', help="VOCdevkit 路径")
-    parser.add_argument("--num-classes", default=2, type=int,help="分类总数")
-    parser.add_argument("--img-size", default=512, type=int,help="图片缩放大小")
-    parser.add_argument("--method", default="fusion",  choices=["fusion", "mask", "contours"], help="输出方式")
+    parser.add_argument("--weights_path", default=r'logs/04-27_09-28-50-X_unet_fin_all/best_model.pth', type=str, help="权重路径")
+    parser.add_argument("--data_path", default=r'..\VOC_extra_defect_bin', help="VOCdevkit 路径")
+    parser.add_argument("--num-classes", default=1, type=int,help="分类总数")
+    parser.add_argument("--img-size", default=256, type=int,help="图片缩放大小")
+    parser.add_argument("--method", default="mask",  choices=["fusion", "mask", "contours"], help="输出方式")
     # 其他
     parser.add_argument("--label", default="End skew", type=str, help="contours方式下的标签")
 

@@ -1,7 +1,9 @@
 import os
+import random
 import time
 import datetime
 
+import numpy as np
 import torch
 from torch import nn
 
@@ -14,6 +16,14 @@ from torch.utils.tensorboard import SummaryWriter
 from utils.mytools import calculater_1,Time_calculater
 from src.unet_mod import *
 from src.nets import *
+
+
+def setup_seed(seed):
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    np.random.seed(seed)
+    random.seed(seed)
+    torch.backends.cudnn.deterministic = True
 def _create_folder(args):
     # 用来保存训练以及验证过程中信息
     if not os.path.exists("logs"):
@@ -122,6 +132,8 @@ def main(args):
     train_loader, val_loader = _load_dataset(args, batch_size)
     #-----------------------创建模型-----------------------
     model = create_model(args,in_channels=3,num_classes=num_classes,base_c=args.base_c).to(device)
+    if args.pretrained:
+        model = torch.load(args.pretrained)
     #-----------------------创建优化器-----------------------
     if num_classes == 2:
         # 设置cross_entropy中背景和前景的loss权重(根据自己的数据集进行设置)
@@ -194,12 +206,12 @@ def main(args):
         # with open(log_dir + '/train_log.csv', 'a', newline='') as csvfile:
         #     writer = csv.writer(csvfile)
         #     writer.writerow([epoch, mean_loss, lr])
-        header_list = ["epoch", "dice", "miou", "mpa"]
+        header_list = ["epoch", "dice", "miou", "mpa",'loss']
         with open(log_dir + '/val_log.csv', 'a', newline='') as csvfile:
             writer = csv.DictWriter(csvfile, fieldnames=header_list)
             if epoch == 0:
                 writer.writeheader()
-            writer.writerow({"epoch": epoch*100, "dice": dice, "miou": confmat["miou"], "mpa": confmat["mpa"]})
+            writer.writerow({"epoch": epoch, "dice": dice*100, "miou": confmat["miou"], "mpa": confmat["mpa"],'loss':mean_loss})
 
         # -----------------------保存模型-----------------------
         if args.save_best is True:
@@ -433,6 +445,11 @@ def create_model(args, in_channels, num_classes,base_c=32):
         model = Unet_lite(in_channels, num_classes, base_c=base_c,block_type='mobile_s')
     elif args.model_name == "Unet_shuffle":
         model = Unet_lite(in_channels, num_classes, base_c=base_c, block_type='shuffle')
+    elif args.model_name == "UResnet":
+        model = UResnet(in_channels, num_classes, 18)
+
+    elif args.model_name == "X_unet_fin_all2":
+        model = X_unet_fin_all2(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
     else:
         raise ValueError("wrong model name")
     return initialize_weights(model)
@@ -447,13 +464,15 @@ def parse_args(model_name=None):
     parser.add_argument("--crop_size", default=256,  type=int, help="图片裁剪大小")
     parser.add_argument("--base_c", default=32, type=int, help="uent的基础通道数")
     parser.add_argument('--save_method',default='all' ,choices=['all','dict'],help='保存模型的方式')
+    parser.add_argument('--pretrained', default='',help='预训练模型路径')
 
     parser.add_argument("--data-path", default=r"..\VOCdevkit_cap_c5_bin", help="VOC数据集路径")
+    # parser.add_argument("--data-path", default=r"..\VOC_extra_defect_bin", help="VOC数据集路径")
     # exclude background
     parser.add_argument("--num-classes", default=1, type=int)
     parser.add_argument("--device", default="cuda", help="training device")
-    parser.add_argument("--batch-size", default=2, type=int)
-    parser.add_argument("--epochs", default=10, type=int, metavar="N",
+    parser.add_argument("--batch-size", default=6, type=int)
+    parser.add_argument("--epochs", default=100, type=int, metavar="N",
                         help="number of total epochs to train")
 
     parser.add_argument('--lr', default=3e-4, type=float, help='initial learning rate')
@@ -478,5 +497,6 @@ def parse_args(model_name=None):
 # tensorboard --logdir logs
 # http://localhost:6006/
 if __name__ == '__main__':
-    args = parse_args('X_unet_fin_all')
+    setup_seed(1)
+    args = parse_args('X_unet_fin_all2')
     main(args)
