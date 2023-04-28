@@ -310,7 +310,8 @@ class ICA(nn.Module):
     def forward(self, x):
         avgout = self.shared_MLP(self.avg_pool(x))
         maxout = self.shared_MLP(self.max_pool(x))
-        return self.sigmoid(avgout + maxout)
+        out = self.sigmoid(avgout + maxout)
+        return out * x
 class SCA2(nn.Module):
     def __init__(self, inp, reduction=32):
         super().__init__()

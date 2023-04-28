@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 from utils.mytools import model_test
 import torch.nn.functional as F
-from src.unet_mod.block import C3,Conv,SPPF,SimAM,CoordAtt,ASPP,CBAM,BasicRFB,SCA,SCA2,SCA3
+from src.unet_mod.block import C3,Conv,SPPF,SimAM,CoordAtt,ASPP,CBAM,BasicRFB,SCA,SCA2,SCA3,ICA
 class Up(nn.Module):
     def __init__(self, in_channels, out_channels, bilinear=False):
         super(Up, self).__init__()
@@ -374,10 +374,56 @@ class X_unet_fin_all3(nn.Module):
         x = self.up4(x, self.att1(x0))
         out = self.out_conv(x)
         return out
+# 改进sca4
+class X_unet_fin_all4(nn.Module):
+    def __init__(self,
+                 in_channels: int = 3,
+                 num_classes: int = 2,
+                 base_c: int = 32):
+        super().__init__()
+        self.in_channels = in_channels
+        self.num_classes = num_classes
+        self.in_conv = Down_fine(in_channels, base_c,s=1)
+        self.down1 = Down_fine(base_c, base_c * 2)
+        self.down2 = Down_fine(base_c * 2, base_c * 4)
+        self.down3 = Down_fine(base_c * 4, base_c * 8)
+        self.down4 = Down_fine(base_c * 8, base_c * 16 )
+        self.ica0 = ICA(base_c)
+        self.ica1 = ICA(base_c * 2)
+        self.ica2 = ICA(base_c * 4)
+        self.ica3 = ICA(base_c * 8)
 
+
+        # self.middle = SPPCSPC_group( base_c * 16,  base_c * 16)
+        self.middle = nn.Sequential(SPPF(base_c * 16,  base_c * 16),Conv(base_c * 16, base_c * 16))
+
+        self.up1 = Up_fin(base_c * 16, base_c * 8 )
+        self.up2 = Up_fin(base_c * 8, base_c * 4 )
+        self.up3 = Up_fin(base_c * 4, base_c * 2 )
+        self.up4 = Up_fin(base_c * 2, base_c)
+        self.out_conv = OutConv(base_c, num_classes)
+
+        self.att1 = SCA3(base_c)
+        self.att2 = SCA3(base_c * 2)
+        self.att3 = SCA3(base_c * 4)
+        self.att4 = SCA3(base_c * 8)
+
+    def forward(self, x):
+        x0 = self.ica0(self.in_conv(x))
+        x1 = self.ica1(self.down1(x0))
+        x2 = self.ica2(self.down2(x1))
+        x3 = self.ica3(self.down3(x2))
+        x4 = self.down4(x3)
+        x5 = self.middle(x4)
+        x = self.up1(x5, self.att4(x3))
+        x = self.up2(x, self.att3(x2))
+        x = self.up3(x, self.att2(x1))
+        x = self.up4(x, self.att1(x0))
+        out = self.out_conv(x)
+        return out
 
 if __name__ == '__main__':
-    model = X_unet_fin_all3(3,2)
+    model = X_unet_fin_all4(3,2)
     model_test(model,(2,3,256,256),'params')
     model_test(model,(2,3,256,256),'shape')
 
