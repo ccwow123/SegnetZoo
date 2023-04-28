@@ -242,162 +242,7 @@ def main(args):
     print("training time {}".format(total_time_str))
 
 
-# 建立模型
-def create_model0(args,in_channels, num_classes, base_c=32):
-    if args.model_name == "unet":
-        model = UNet(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
-    elif args.model_name == "Unet0":
-        model = Unet0(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
-    elif args.model_name == "Unet_res":
-        model = Unet_EX(in_channels, num_classes, base_c=base_c,block_type='resnet')
-    elif args.model_name == "Unet_resnest":
-        model = Unet_EX(in_channels, num_classes, base_c=base_c, block_type='resnest')
-    elif args.model_name == "Unet_res_cbam":
-        model = Unet_Attention(in_channels, num_classes, base_c=base_c,block_type='resnest',attention='cbam')
-    elif args.model_name == "Unet_res_se":
-        model = Unet_Attention(in_channels, num_classes, base_c=base_c,block_type='resnest',attention='se')
-    elif args.model_name == "Unet_res_ca":
-        model = Unet_Attention(in_channels, num_classes, base_c=base_c,block_type='resnest',attention='ca')
-    elif args.model_name == "Unet_res_simam":
-        model = Unet_Attention(in_channels, num_classes, base_c=base_c,block_type='resnest',attention='simam')
-    elif args.model_name == "Unet_mobile_s":
-        model = Unet_lite(in_channels, num_classes, base_c=base_c,block_type='mobile_s')
-    elif args.model_name == "Unet_shuffle":
-        model = Unet_lite(in_channels, num_classes, base_c=base_c, block_type='shuffle')
-    elif args.model_name == "Unet0_drop":
-        model = Unet0_drop(in_channels, num_classes, base_c=base_c)
-    elif args.model_name == "deeplabV3p":
-        model = deeplabv3_resnet50(num_classes=num_classes, pretrained_backbone=False)
-    elif args.model_name == "lraspp_mobilenetv3_large":
-        model = lraspp_mobilenetv3_large(num_classes=num_classes, pretrain_backbone=False)
 
-    elif args.model_name == "Unet_C3":
-        model = Unet_best(in_channels, num_classes, base_c=base_c,block='C3')
-    elif args.model_name == "Unet_C3_spp":
-        model = Unet_best(in_channels, num_classes, base_c=base_c,block='C3',spp='spp')
-    elif args.model_name == "Unet_C3_sppf":
-        model = Unet_best(in_channels, num_classes, base_c=base_c,block='C3',spp='sppf')
-    elif args.model_name == "Unet_C3_cbam":
-        model = Unet_best(in_channels, num_classes, base_c=base_c, block='C3', att='cbam')
-    elif args.model_name == "Unet_C3_sam":
-        model = Unet_best(in_channels, num_classes, base_c=base_c, block='C3', att='sam')
-    elif args.model_name == "Unet_C3_sppf_cbam":
-        model = Unet_best(in_channels, num_classes, base_c=base_c, block='C3', spp='sppf', att='cbam')
-    elif args.model_name == "Unet_C3_sppf_sam":
-        model = Unet_best(in_channels, num_classes, base_c=base_c, block='C3', spp='sppf', att='sam')
-    elif args.model_name == "Unet_C3_sppf_ca":
-        model = Unet_best(in_channels, num_classes, base_c=base_c, block='C3', spp='sppf', att='ca')
-
-    elif args.model_name == "Unet_C3_sppf_cbam_r":
-        model = Unet_best_right(in_channels, num_classes, base_c=base_c, block='C3', spp='sppf', att='cbam')
-    elif args.model_name == "Unet_C3_sppf_sam_r":
-        model = Unet_best_right(in_channels, num_classes, base_c=base_c, block='C3', spp='sppf', att='sam')
-    elif args.model_name == "Unet_C3_sppf_ca_r":
-        model = Unet_best_right(in_channels, num_classes, base_c=base_c, block='C3', spp='sppf', att='ca')
-
-    elif args.model_name == "Unet_C3CSP":
-        model = Unet_best(in_channels, num_classes, base_c=base_c, block='C3CSP')
-    elif args.model_name == "Unet_C3CSP_sppf":
-        model = Unet_best(in_channels, num_classes, base_c=base_c, block='C3CSP', spp='sppf')
-    elif args.model_name == "Unet_C3CSP_sppf_sam":
-        model = Unet_best(in_channels, num_classes, base_c=base_c, block='C3CSP', spp='sppf', att='sam')
-    # 把up_CON也改了
-    elif args.model_name == "Unet_C33":
-        model = Unet_C3(in_channels, num_classes,n=3,base_c=base_c)
-    elif args.model_name == "Unet_C33_sppf":
-        model = Unet_C3(in_channels, num_classes,n=3,base_c=base_c,spp='sppf')
-    elif args.model_name == "Unet_C33_sppf_sam":
-        model = Unet_C3(in_channels, num_classes,n=3,base_c=base_c,spp='sppf',att='sam')
-
-    elif args.model_name == "Unet_C33e":#e为扩张率，设置为0.25，与resnet一样
-        model = Unet_C3(in_channels, num_classes,n=3,e=0.25,base_c=base_c)
-    elif args.model_name == "Unet_C33e_sppf":
-        model = Unet_C3(in_channels, num_classes, n=3, e=0.25, base_c=base_c, spp='sppf')
-    elif args.model_name == "Unet_C33e_sppf_sam":
-        model = Unet_C3(in_channels, num_classes, n=3, e=0.25, base_c=base_c, spp='sppf', att='sam')
-
-    elif args.model_name == "Unet_cat":#n=3, e=0.25,
-        model = Unet_cat(in_channels, num_classes, base_c=base_c)
-    elif args.model_name == "Unet_cat_sppf":
-        model = Unet_cat(in_channels, num_classes, base_c=base_c, spp='sppf')
-    #重构
-    elif args.model_name == "X_Unet":
-        model = X_Unet(in_channels, num_classes, base_c=base_c)
-
-    else:
-        raise ValueError("wrong model name")
-    return initialize_weights(model)
-def create_model1(args,in_channels, num_classes, base_c=32):
-    if args.model_name == "unet":
-        model = UNet(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
-    elif args.model_name == "Unet0":
-        model = Unet0(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
-
-    #重构
-    elif args.model_name == "X_Unet":
-        model = X_Unet(in_channels, num_classes, base_c=base_c)
-    elif args.model_name == "X_Unet_v2":
-        model = X_Unet_v2(in_channels, num_classes, base_c=base_c)
-    elif args.model_name == "X_Unet_v3":
-        model = X_Unet_v3(in_channels, num_classes, base_c=base_c)
-    elif args.model_name == "X_Unet_v4":
-        model = X_Unet_v4(in_channels, num_classes, base_c=base_c)
-    elif args.model_name == "X_Unet_v4_2":
-        model = X_Unet_v4_2(in_channels, num_classes, base_c=base_c)
-    elif args.model_name == "X_Unet_v5":
-        model = X_Unet_v5(in_channels, num_classes, base_c=base_c)
-
-    elif args.model_name == "Unet0c3":
-        model = Unet0c3(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
-    elif args.model_name == "Unet0c3_v2":
-        model = Unet0c3_v2(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
-    elif args.model_name == "Unet0c3_v2_1":
-        model = Unet0c3_v2_1(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
-    elif args.model_name == "Unet0c3_v2_2":
-        model = Unet0c3_v2_2(in_channels=in_channels, num_classes=num_classes, base_c=base_c, attention='ca')
-    elif args.model_name == "Unet0c3_v2_3":
-        model = Unet0c3_v2_3(in_channels=in_channels, num_classes=num_classes, base_c=base_c, attention='ca')
-    elif args.model_name == "Unet0c3_v2_3cbam":
-        model = Unet0c3_v2_3(in_channels=in_channels, num_classes=num_classes, base_c=base_c, attention='CBAM')
-
-    elif args.model_name == "Unet0c3_v2_4ca":
-        model = Unet0c3_v2_4(in_channels=in_channels, num_classes=num_classes, base_c=base_c, attention='ca')
-    elif args.model_name == "Unet0c3_v2_4cbam":
-        model = Unet0c3_v2_4(in_channels=in_channels, num_classes=num_classes, base_c=base_c, attention='CBAM')
-
-    elif args.model_name == "Unet0c3_v3":
-        model = Unet0c3_v3(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
-    elif args.model_name == "Unet0c3_v3_1":
-        model = Unet0c3_v3_1(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
-    elif args.model_name == "Unet0c3_v4":
-        model = Unet0c3_v4(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
-
-    elif args.model_name == "Unet0c3_v5":
-        model = Unet0c3_v5(in_channels=in_channels, num_classes=num_classes, base_c=base_c, attention='CBAM')
-    elif args.model_name == "Unet0c3_v6":
-        model = Unet0c3_v6(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
-
-    elif args.model_name == "X_unet0":
-        model = X_unet0(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
-    elif args.model_name == "X_unet1":
-        model = X_unet1(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
-    elif args.model_name == "X_unet2":
-        model = X_unet2(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
-    elif args.model_name == "X_unet3":
-        model = X_unet3(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
-    elif args.model_name == "X_unet4":
-        model = X_unet4(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
-    elif args.model_name == "X_unet5":
-        model = X_unet5(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
-    elif args.model_name == "X_unet6":
-        model = X_unet6(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
-    elif args.model_name == "X_unet7":
-        model = X_unet7(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
-    elif args.model_name == "X_unet9":
-        model = X_unet9(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
-    else:
-        raise ValueError("wrong model name")
-    return initialize_weights(model)
 def create_model(args, in_channels, num_classes,base_c=32):
     if args.model_name == "X_unet_fin":
         model = X_unet_fin(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
@@ -450,6 +295,8 @@ def create_model(args, in_channels, num_classes,base_c=32):
 
     elif args.model_name == "X_unet_fin_all2":
         model = X_unet_fin_all2(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
+    elif args.model_name == "X_unet_fin_all3":
+        model = X_unet_fin_all3(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
     else:
         raise ValueError("wrong model name")
     return initialize_weights(model)
@@ -460,8 +307,8 @@ def parse_args(model_name=None):
 
     parser.add_argument("--model_name", default=model_name, help="模型名称")
     parser.add_argument("--optimizer", default='adam',choices=['sgd','adam'] ,help="优化器")
-    parser.add_argument("--base_size", default=256, type=int, help="图片缩放大小")
-    parser.add_argument("--crop_size", default=256,  type=int, help="图片裁剪大小")
+    parser.add_argument("--base_size", default=64, type=int, help="图片缩放大小")
+    parser.add_argument("--crop_size", default=64,  type=int, help="图片裁剪大小")
     parser.add_argument("--base_c", default=32, type=int, help="uent的基础通道数")
     parser.add_argument('--save_method',default='all' ,choices=['all','dict'],help='保存模型的方式')
     parser.add_argument('--pretrained', default='',help='预训练模型路径')
@@ -472,7 +319,7 @@ def parse_args(model_name=None):
     parser.add_argument("--num-classes", default=1, type=int)
     parser.add_argument("--device", default="cuda", help="training device")
     parser.add_argument("--batch-size", default=6, type=int)
-    parser.add_argument("--epochs", default=100, type=int, metavar="N",
+    parser.add_argument("--epochs", default=2, type=int, metavar="N",
                         help="number of total epochs to train")
 
     parser.add_argument('--lr', default=3e-4, type=float, help='initial learning rate')
@@ -500,3 +347,161 @@ if __name__ == '__main__':
     setup_seed(1)
     args = parse_args('X_unet_fin_all2')
     main(args)
+
+
+# # 建立模型
+# def create_model0(args,in_channels, num_classes, base_c=32):
+#     if args.model_name == "unet":
+#         model = UNet(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
+#     elif args.model_name == "Unet0":
+#         model = Unet0(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
+#     elif args.model_name == "Unet_res":
+#         model = Unet_EX(in_channels, num_classes, base_c=base_c,block_type='resnet')
+#     elif args.model_name == "Unet_resnest":
+#         model = Unet_EX(in_channels, num_classes, base_c=base_c, block_type='resnest')
+#     elif args.model_name == "Unet_res_cbam":
+#         model = Unet_Attention(in_channels, num_classes, base_c=base_c,block_type='resnest',attention='cbam')
+#     elif args.model_name == "Unet_res_se":
+#         model = Unet_Attention(in_channels, num_classes, base_c=base_c,block_type='resnest',attention='se')
+#     elif args.model_name == "Unet_res_ca":
+#         model = Unet_Attention(in_channels, num_classes, base_c=base_c,block_type='resnest',attention='ca')
+#     elif args.model_name == "Unet_res_simam":
+#         model = Unet_Attention(in_channels, num_classes, base_c=base_c,block_type='resnest',attention='simam')
+#     elif args.model_name == "Unet_mobile_s":
+#         model = Unet_lite(in_channels, num_classes, base_c=base_c,block_type='mobile_s')
+#     elif args.model_name == "Unet_shuffle":
+#         model = Unet_lite(in_channels, num_classes, base_c=base_c, block_type='shuffle')
+#     elif args.model_name == "Unet0_drop":
+#         model = Unet0_drop(in_channels, num_classes, base_c=base_c)
+#     elif args.model_name == "deeplabV3p":
+#         model = deeplabv3_resnet50(num_classes=num_classes, pretrained_backbone=False)
+#     elif args.model_name == "lraspp_mobilenetv3_large":
+#         model = lraspp_mobilenetv3_large(num_classes=num_classes, pretrain_backbone=False)
+#
+#     elif args.model_name == "Unet_C3":
+#         model = Unet_best(in_channels, num_classes, base_c=base_c,block='C3')
+#     elif args.model_name == "Unet_C3_spp":
+#         model = Unet_best(in_channels, num_classes, base_c=base_c,block='C3',spp='spp')
+#     elif args.model_name == "Unet_C3_sppf":
+#         model = Unet_best(in_channels, num_classes, base_c=base_c,block='C3',spp='sppf')
+#     elif args.model_name == "Unet_C3_cbam":
+#         model = Unet_best(in_channels, num_classes, base_c=base_c, block='C3', att='cbam')
+#     elif args.model_name == "Unet_C3_sam":
+#         model = Unet_best(in_channels, num_classes, base_c=base_c, block='C3', att='sam')
+#     elif args.model_name == "Unet_C3_sppf_cbam":
+#         model = Unet_best(in_channels, num_classes, base_c=base_c, block='C3', spp='sppf', att='cbam')
+#     elif args.model_name == "Unet_C3_sppf_sam":
+#         model = Unet_best(in_channels, num_classes, base_c=base_c, block='C3', spp='sppf', att='sam')
+#     elif args.model_name == "Unet_C3_sppf_ca":
+#         model = Unet_best(in_channels, num_classes, base_c=base_c, block='C3', spp='sppf', att='ca')
+#
+#     elif args.model_name == "Unet_C3_sppf_cbam_r":
+#         model = Unet_best_right(in_channels, num_classes, base_c=base_c, block='C3', spp='sppf', att='cbam')
+#     elif args.model_name == "Unet_C3_sppf_sam_r":
+#         model = Unet_best_right(in_channels, num_classes, base_c=base_c, block='C3', spp='sppf', att='sam')
+#     elif args.model_name == "Unet_C3_sppf_ca_r":
+#         model = Unet_best_right(in_channels, num_classes, base_c=base_c, block='C3', spp='sppf', att='ca')
+#
+#     elif args.model_name == "Unet_C3CSP":
+#         model = Unet_best(in_channels, num_classes, base_c=base_c, block='C3CSP')
+#     elif args.model_name == "Unet_C3CSP_sppf":
+#         model = Unet_best(in_channels, num_classes, base_c=base_c, block='C3CSP', spp='sppf')
+#     elif args.model_name == "Unet_C3CSP_sppf_sam":
+#         model = Unet_best(in_channels, num_classes, base_c=base_c, block='C3CSP', spp='sppf', att='sam')
+#     # 把up_CON也改了
+#     elif args.model_name == "Unet_C33":
+#         model = Unet_C3(in_channels, num_classes,n=3,base_c=base_c)
+#     elif args.model_name == "Unet_C33_sppf":
+#         model = Unet_C3(in_channels, num_classes,n=3,base_c=base_c,spp='sppf')
+#     elif args.model_name == "Unet_C33_sppf_sam":
+#         model = Unet_C3(in_channels, num_classes,n=3,base_c=base_c,spp='sppf',att='sam')
+#
+#     elif args.model_name == "Unet_C33e":#e为扩张率，设置为0.25，与resnet一样
+#         model = Unet_C3(in_channels, num_classes,n=3,e=0.25,base_c=base_c)
+#     elif args.model_name == "Unet_C33e_sppf":
+#         model = Unet_C3(in_channels, num_classes, n=3, e=0.25, base_c=base_c, spp='sppf')
+#     elif args.model_name == "Unet_C33e_sppf_sam":
+#         model = Unet_C3(in_channels, num_classes, n=3, e=0.25, base_c=base_c, spp='sppf', att='sam')
+#
+#     elif args.model_name == "Unet_cat":#n=3, e=0.25,
+#         model = Unet_cat(in_channels, num_classes, base_c=base_c)
+#     elif args.model_name == "Unet_cat_sppf":
+#         model = Unet_cat(in_channels, num_classes, base_c=base_c, spp='sppf')
+#     #重构
+#     elif args.model_name == "X_Unet":
+#         model = X_Unet(in_channels, num_classes, base_c=base_c)
+#
+#     else:
+#         raise ValueError("wrong model name")
+#     return initialize_weights(model)
+# def create_model1(args,in_channels, num_classes, base_c=32):
+#     if args.model_name == "unet":
+#         model = UNet(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
+#     elif args.model_name == "Unet0":
+#         model = Unet0(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
+#
+#     #重构
+#     elif args.model_name == "X_Unet":
+#         model = X_Unet(in_channels, num_classes, base_c=base_c)
+#     elif args.model_name == "X_Unet_v2":
+#         model = X_Unet_v2(in_channels, num_classes, base_c=base_c)
+#     elif args.model_name == "X_Unet_v3":
+#         model = X_Unet_v3(in_channels, num_classes, base_c=base_c)
+#     elif args.model_name == "X_Unet_v4":
+#         model = X_Unet_v4(in_channels, num_classes, base_c=base_c)
+#     elif args.model_name == "X_Unet_v4_2":
+#         model = X_Unet_v4_2(in_channels, num_classes, base_c=base_c)
+#     elif args.model_name == "X_Unet_v5":
+#         model = X_Unet_v5(in_channels, num_classes, base_c=base_c)
+#
+#     elif args.model_name == "Unet0c3":
+#         model = Unet0c3(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
+#     elif args.model_name == "Unet0c3_v2":
+#         model = Unet0c3_v2(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
+#     elif args.model_name == "Unet0c3_v2_1":
+#         model = Unet0c3_v2_1(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
+#     elif args.model_name == "Unet0c3_v2_2":
+#         model = Unet0c3_v2_2(in_channels=in_channels, num_classes=num_classes, base_c=base_c, attention='ca')
+#     elif args.model_name == "Unet0c3_v2_3":
+#         model = Unet0c3_v2_3(in_channels=in_channels, num_classes=num_classes, base_c=base_c, attention='ca')
+#     elif args.model_name == "Unet0c3_v2_3cbam":
+#         model = Unet0c3_v2_3(in_channels=in_channels, num_classes=num_classes, base_c=base_c, attention='CBAM')
+#
+#     elif args.model_name == "Unet0c3_v2_4ca":
+#         model = Unet0c3_v2_4(in_channels=in_channels, num_classes=num_classes, base_c=base_c, attention='ca')
+#     elif args.model_name == "Unet0c3_v2_4cbam":
+#         model = Unet0c3_v2_4(in_channels=in_channels, num_classes=num_classes, base_c=base_c, attention='CBAM')
+#
+#     elif args.model_name == "Unet0c3_v3":
+#         model = Unet0c3_v3(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
+#     elif args.model_name == "Unet0c3_v3_1":
+#         model = Unet0c3_v3_1(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
+#     elif args.model_name == "Unet0c3_v4":
+#         model = Unet0c3_v4(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
+#
+#     elif args.model_name == "Unet0c3_v5":
+#         model = Unet0c3_v5(in_channels=in_channels, num_classes=num_classes, base_c=base_c, attention='CBAM')
+#     elif args.model_name == "Unet0c3_v6":
+#         model = Unet0c3_v6(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
+#
+#     elif args.model_name == "X_unet0":
+#         model = X_unet0(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
+#     elif args.model_name == "X_unet1":
+#         model = X_unet1(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
+#     elif args.model_name == "X_unet2":
+#         model = X_unet2(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
+#     elif args.model_name == "X_unet3":
+#         model = X_unet3(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
+#     elif args.model_name == "X_unet4":
+#         model = X_unet4(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
+#     elif args.model_name == "X_unet5":
+#         model = X_unet5(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
+#     elif args.model_name == "X_unet6":
+#         model = X_unet6(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
+#     elif args.model_name == "X_unet7":
+#         model = X_unet7(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
+#     elif args.model_name == "X_unet9":
+#         model = X_unet9(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
+#     else:
+#         raise ValueError("wrong model name")
+#     return initialize_weights(model)
