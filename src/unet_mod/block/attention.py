@@ -326,8 +326,8 @@ class SCA2(nn.Module):
         self.conv_w = nn.Conv2d(mip, inp, kernel_size=1, stride=1, padding=0)
 
     def forward(self, x):
-        identity = self.ica(x)
-        # identity =x
+        # identity = self.ica(x)
+        identity =x
         n, c, h, w = x.size()
         #c*1*W
         x_h = self.pool_h(x)
