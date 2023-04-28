@@ -19,12 +19,14 @@ def criterion0(inputs, target, loss_weight=None, num_classes: int = 2, dice: boo
 
     return losses['out'] + 0.5 * losses['aux']
 def criterion(x, target,loss_fn, loss_weight=None, num_classes: int = 2, dice: bool = False, ignore_index: int = -100):
-        # 忽略target中值为255的像素，255的像素是目标边缘或者padding填充
-        loss = loss_fn(x, target)
-        if dice is True:
-            dice_target = build_target(target, num_classes, ignore_index)
-            loss += dice_loss(x, dice_target, multiclass=True, ignore_index=ignore_index)
-        return loss
+    w_t = loss_weight
+    # 忽略target中值为255的像素，255的像素是目标边缘或者padding填充
+    loss = loss_fn(x, target)
+    if dice is True:
+        dice_target = build_target(target, num_classes, ignore_index)
+        loss = w_t * loss + (1 - w_t) * dice_loss(x, dice_target, multiclass=True, ignore_index=ignore_index)
+        # loss += dice_loss(x, dice_target, multiclass=True, ignore_index=ignore_index)
+    return loss
 
 
 def evaluate(model, data_loader, device, num_classes):
@@ -52,18 +54,19 @@ def evaluate(model, data_loader, device, num_classes):
     return confmat_output, dice.value.item()
 
 
-def train_one_epoch(model,loss_fn, optimizer, data_loader, device, epoch, num_classes,
+def train_one_epoch(model,loss_fn,loss_weight, optimizer, data_loader, device, epoch, num_classes,
                     lr_scheduler, print_freq=10, scaler=None):
     model.train()
     metric_logger = utils.MetricLogger(delimiter="  ")
     metric_logger.add_meter('lr', utils.SmoothedValue(window_size=1, fmt='{value:.6f}'))
     header = 'Epoch: [{}]'.format(epoch)
 
-    if num_classes == 2:
-        # 设置cross_entropy中背景和前景的loss权重(根据自己的数据集进行设置)
-        loss_weight = torch.as_tensor([1.0, 2.0], device=device)
-    else:
-        loss_weight = None
+    # if num_classes == 2:
+    #     # 设置cross_entropy中背景和前景的loss权重(根据自己的数据集进行设置)
+    #     # loss_weight = torch.as_tensor([1.0, 2.0], device=device)
+    #     loss_weight = torch.as_tensor([1.0, 2.0], device=device)
+    # else:
+    #     loss_weight = None
 
     for image, target in metric_logger.log_every(data_loader, print_freq, header):
         image, target = image.to(device), target.to(device)
