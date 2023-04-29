@@ -165,7 +165,23 @@ def contours_process(origin_img, pred_img,label):
 
     return result_img
 
+# 找到预测图中白色轮廓信息并进行处理
+def contours_process_nolabel(origin_img, pred_img):
+    # 重构
+    # 获取缺陷目标面积和位置
+    target_area, area_scale_list, box_list, result_img = get_target_true_area2(origin_img, pred_img)
+    # 显示面积文字
+    for i2 in range(len(target_area)):
+        # area_show=target_area[i2] + 'mm2'#面积文字
+        scale_show = str(area_scale_list[i2]) + '%'  # 面积占比文字
+        info = scale_show
+        position = (box_list[i2])
 
+        # 不想显示面积占比的话，把下面这行注释掉
+        #                           图片     添加的文字   位置      字体                字体大小 字体颜色 字体粗细
+        result_img = cv2.putText(result_img, info, position, cv2.FONT_HERSHEY_COMPLEX, 0.8,(0, 0, 255), 2)#面积文字
+
+    return result_img
 if __name__ == '__main__':
     path = r'D:\Files\_datasets\voc_self\data_dataset_voc\JPEGImages\E_pinhole_17.jpg'  # 电容图片
     path2 = r'D:\Files\_datasets\voc_self\data_dataset_voc\SegmentationClass\E_pinhole_17.png'  # 缺陷mask图片   注意路径不能有中文
