@@ -225,6 +225,29 @@ class SPPF(nn.Module):
             y2 = self.m(y1)
             return self.cv2(torch.cat([x, y1, y2, self.m(y2)], 1))
 
+class CPFFM (nn.Module):
+    def __init__(self, c1, c2, k=5):  # equivalent to SPP(k=(5, 9, 13))
+        super().__init__()
+        c_ = c1 // 2  # hidden channels
+        self.cv1 = Conv(c1, c_, 1, 1)
+        self.cv2 = Conv(c_ * 4, c2, 1, 1)
+        self.m = nn.MaxPool2d(kernel_size=k, stride=1, padding=k // 2)
+        self.cv3 = Conv(c2, c2, 3, 1)
+        self.cv4 = Conv(c2, c1, 1, 1)
+
+    def forward(self, x):
+        x = self.cv1(x)
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')  # suppress torch 1.9.0 max_pool2d() warning
+            y1 = self.m(x)
+            y2 = self.m(y1)
+            y3 = self.m(y2)
+            x = self.cv2(torch.cat([x, y1, y2, y3], 1))
+        x = self.cv3(x)
+        x = self.cv4(x)
+        return x
+
+
 #把宽和高填充整合到c空间中
 class Focus(nn.Module):
     # Focus wh information into c-space
