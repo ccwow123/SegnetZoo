@@ -301,6 +301,8 @@ def create_model(args, in_channels, num_classes,base_c=32):
         model = X_unet_fin_all4(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
     elif args.model_name == "X_unet_fin_all5":
         model = X_unet_fin_all5(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
+    elif args.model_name == "X_unet_fin_all6":
+        model = X_unet_fin_all6(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
     else:
         raise ValueError("wrong model name")
     return initialize_weights(model)
@@ -350,7 +352,7 @@ def parse_args(model_name=None):
 # http://localhost:6006/
 if __name__ == '__main__':
     setup_seed(1)
-    args = parse_args('X_unet_fin_all5')
+    args = parse_args('X_unet_fin_all6')
     main(args)
 
 
