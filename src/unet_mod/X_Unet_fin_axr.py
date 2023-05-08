@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 from utils.mytools import model_test
 import torch.nn.functional as F
-from src.unet_mod.block import C3,Conv,SPPF,SimAM,CoordAtt,ASPP,CBAM,BasicRFB,SCA,SCA2,SCA3,ICA,CPFFM
+from src.unet_mod.block import *
 class Up(nn.Module):
     def __init__(self, in_channels, out_channels, bilinear=False):
         super(Up, self).__init__()
@@ -105,6 +105,26 @@ class Up_fin(nn.Module):
         x = torch.cat([x2, x1], dim=1)
         x = self.conv(x)
         return x
+
+class Down_fine_DW(nn.Sequential):
+    def __init__(self, in_channels, out_channels,s=2):
+        mid = out_channels // 2
+        super().__init__(
+            DWConv(in_channels, mid,k=3, s=s),
+            C3DW(mid, out_channels,n=3)
+        )
+class Up_fin_DW(nn.Module):
+    def __init__(self, in_channels, out_channels):
+        super().__init__()
+        self.up = CARAFE(in_channels, in_channels // 2)
+        self.conv = C3DW(in_channels, out_channels)
+
+    def forward(self, x1: torch.Tensor, x2: torch.Tensor) -> torch.Tensor:
+        x1 = self.up(x1)
+        x = torch.cat([x2, x1], dim=1)
+        x = self.conv(x)
+        return x
+
 class OutConv(nn.Sequential):
     def __init__(self, in_channels, num_classes):
         super(OutConv, self).__init__(
@@ -507,9 +527,50 @@ class X_unet_fin_all6(nn.Module):
         x = self.up4(x, self.att1(x0))
         out = self.out_conv(x)
         return out
+# 使用DW卷积
+class X_unet_fin_all7(nn.Module):
+    def __init__(self,
+                 in_channels: int = 3,
+                 num_classes: int = 2,
+                 base_c: int = 32):
+        super().__init__()
+        self.in_channels = in_channels
+        self.num_classes = num_classes
+        self.in_conv = Down_fine_DW(in_channels, base_c,s=1)
+        self.down1 = Down_fine_DW(base_c, base_c * 2)
+        self.down2 = Down_fine_DW(base_c * 2, base_c * 4)
+        self.down3 = Down_fine_DW(base_c * 4, base_c * 8)
+        self.down4 = Down_fine_DW(base_c * 8, base_c * 16 )
 
+        # self.middle = SPPCSPC_group( base_c * 16,  base_c * 16)
+        self.middle = nn.Sequential(SPPF(base_c * 16,  base_c * 16),Conv(base_c * 16, base_c * 16))
+
+        self.up1 = Up_fin_DW(base_c * 16, base_c * 8 )
+        self.up2 = Up_fin_DW(base_c * 8, base_c * 4 )
+        self.up3 = Up_fin_DW(base_c * 4, base_c * 2 )
+        self.up4 = Up_fin_DW(base_c * 2, base_c)
+        self.out_conv = OutConv(base_c, num_classes)
+
+        self.att1 = SCA3(base_c)
+        self.att2 = SCA3(base_c * 2)
+        self.att3 = SCA3(base_c * 4)
+        self.att4 = SCA3(base_c * 8)
+
+    def forward(self, x):
+        x0 = self.in_conv(x)
+        x1 = self.down1(x0)
+        x2 = self.down2(x1)
+        x3 = self.down3(x2)
+        x4 = self.down4(x3)
+        x5 = self.middle(x4)
+        x = self.up1(x5, self.att4(x3))
+        x = self.up2(x, self.att3(x2))
+        x = self.up3(x, self.att2(x1))
+        x = self.up4(x, self.att1(x0))
+        out = self.out_conv(x)
+        return out
 if __name__ == '__main__':
-    model = X_unet_fin_all5(3,2)
+    model = X_unet_fin_all7(3,2)
     model_test(model,(2,3,256,256),'params')
     model_test(model,(2,3,256,256),'shape')
 
