@@ -88,7 +88,7 @@ class SPPCSPC_group(nn.Module):
         return self.cv7(torch.cat((y1, y2), dim=1))
 
 class Down_fine(nn.Sequential):
-    def __init__(self, in_channels, out_channels,s=2):
+    def __init__(self, in_channels, out_channels,s=2,n=3):
         mid = out_channels // 2
         super().__init__(
             Conv(in_channels, mid,k=3, s=s),
@@ -569,8 +569,53 @@ class X_unet_fin_all7(nn.Module):
         x = self.up4(x, self.att1(x0))
         out = self.out_conv(x)
         return out
+
+# C3个数为1
+class X_unet_fin_all8(nn.Module):
+        def __init__(self,
+                     in_channels: int = 3,
+                     num_classes: int = 2,
+                     base_c: int = 32):
+            super().__init__()
+            self.in_channels = in_channels
+            self.num_classes = num_classes
+            self.in_conv = Down_fine(in_channels, base_c, s=1,n=1)
+            self.down1 = Down_fine(base_c, base_c * 2,n=1)
+            self.down2 = Down_fine(base_c * 2, base_c * 4,n=1)
+            self.down3 = Down_fine(base_c * 4, base_c * 8,n=1)
+            self.down4 = Down_fine(base_c * 8, base_c * 16,n=1)
+
+            # self.middle = SPPCSPC_group( base_c * 16,  base_c * 16)
+            self.middle = CPFFM(base_c * 16, base_c * 16)
+
+            self.up1 = Up_fin(base_c * 16, base_c * 8)
+            self.up2 = Up_fin(base_c * 8, base_c * 4)
+            self.up3 = Up_fin(base_c * 4, base_c * 2)
+            self.up4 = Up_fin(base_c * 2, base_c)
+            self.out_conv = OutConv(base_c, num_classes)
+
+            self.att1 = SCA3(base_c)
+            self.att2 = SCA3(base_c * 2)
+            self.att3 = SCA3(base_c * 4)
+            self.att4 = SCA3(base_c * 8)
+
+        def forward(self, x):
+            x0 = self.in_conv(x)
+            x1 = self.down1(x0)
+            x2 = self.down2(x1)
+            x3 = self.down3(x2)
+            x4 = self.down4(x3)
+            x5 = self.middle(x4)
+            x = self.up1(x5, self.att4(x3))
+            x = self.up2(x, self.att3(x2))
+            x = self.up3(x, self.att2(x1))
+            x = self.up4(x, self.att1(x0))
+            out = self.out_conv(x)
+            return out
+
+
 if __name__ == '__main__':
-    model = X_unet_fin_all7(3,2)
+    model = X_unet_fin_all8(3,2)
     model_test(model,(2,3,256,256),'params')
     model_test(model,(2,3,256,256),'shape')
 

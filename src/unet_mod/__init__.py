@@ -10,5 +10,5 @@ from .X_unet0 import X_unet0,X_unet1,X_unet2,X_unet3,X_unet4,X_unet5,X_unet6,X_u
 from .X_Unet_fin import X_unet_fin,X_unet_fin_1,X_unet_fin_2
 from .X_Unet_fin_a import X_unet_fin_al,X_unet_fin_am,X_unet_fin_ar
 from .X_Unet_fin_axr import X_unet_fin_noall,X_unet_fin_DA,X_unet_fin_CARAFE,X_unet_fin_SCSPP,X_unet_fin_all,X_unet_fin_all2,\
-    X_unet_fin_all3,X_unet_fin_all4,X_unet_fin_all5,X_unet_fin_all6,X_unet_fin_all7
+    X_unet_fin_all3,X_unet_fin_all4,X_unet_fin_all5,X_unet_fin_all6,X_unet_fin_all7,X_unet_fin_all8
 from .resnet import UResnet
