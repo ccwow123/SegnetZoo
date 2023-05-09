@@ -92,7 +92,7 @@ class Down_fine(nn.Sequential):
         mid = out_channels // 2
         super().__init__(
             Conv(in_channels, mid,k=3, s=s),
-            C3(mid, out_channels,n=3)
+            C3(mid, out_channels,n=n)
         )
 class Up_fin(nn.Module):
     def __init__(self, in_channels, out_channels):

@@ -17,7 +17,9 @@ from utils.mytools import calculater_1,Time_calculater
 from src.unet_mod import *
 from src.nets import *
 
-
+'''
+进行迁移训练
+'''
 def setup_seed(seed):
     torch.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
@@ -133,7 +135,18 @@ def main(args):
     #-----------------------创建模型-----------------------
     model = create_model(args,in_channels=3,num_classes=num_classes,base_c=args.base_c).to(device)
     if args.pretrained:
-        model = torch.load(args.pretrained)
+        # model = torch.load(args.pretrained)
+
+        # 得到dict格式后用
+        checkpoint = torch.load(args.pretrained, map_location='cpu')['model']
+        # Unet
+        checkpoint.pop('out_conv.0.weight')
+        checkpoint.pop('out_conv.0.bias')
+        # deeplabV3p
+        # checkpoint.pop('classifier.classifier.4.weight')
+        # checkpoint.pop('classifier.classifier.4.bias')
+
+        model.load_state_dict(checkpoint,strict=False)
     #-----------------------创建优化器-----------------------
     if num_classes == 2:
         # 设置cross_entropy中背景和前景的loss权重(根据自己的数据集进行设置)
@@ -299,38 +312,36 @@ def create_model(args, in_channels, num_classes,base_c=32):
         model = X_unet_fin_all3(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
     elif args.model_name == "X_unet_fin_all4":
         model = X_unet_fin_all4(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
-    elif args.model_name == "X_unet_fin_all5":
-        model = X_unet_fin_all5(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
-    elif args.model_name == "X_unet_fin_all6":
-        model = X_unet_fin_all6(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
-    elif args.model_name == "X_unet_fin_all7":
-        model = X_unet_fin_all7(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
-    elif args.model_name == "X_unet_fin_all8":
-        model = X_unet_fin_all8(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
     else:
         raise ValueError("wrong model name")
     return initialize_weights(model)
 
-def parse_args(model_name=None):
+
+
+'''
+用于迁移学习
+'''
+def parse_args():
     import argparse
     parser = argparse.ArgumentParser(description="pytorch unet training")
 
-    parser.add_argument("--model_name", default=model_name, help="模型名称")
+    parser.add_argument("--model_name", default="X_unet_fin_all3", help="模型名称")
     parser.add_argument("--optimizer", default='adam',choices=['sgd','adam'] ,help="优化器")
     parser.add_argument("--base_size", default=256, type=int, help="图片缩放大小")
     parser.add_argument("--crop_size", default=256,  type=int, help="图片裁剪大小")
     parser.add_argument("--base_c", default=32, type=int, help="uent的基础通道数")
     parser.add_argument('--save_method',default='all' ,choices=['all','dict'],help='保存模型的方式')
-    parser.add_argument('--pretrained', default='',help='预训练模型路径')
+    parser.add_argument('--pretrained', default='logs/05-05_15-48-12-X_unet_fin_all3_multi/best_model.pth',help='预训练模型路径')
     parser.add_argument('--w_t', default=0.5,help='dice loss的权重')
 
-    parser.add_argument("--data-path", default=r"..\VOCdevkit_cap_c5_bin", help="VOC数据集路径")
-    # parser.add_argument("--data-path", default=r"..\VOC_MLCC_8_mul", help="VOC数据集路径")
+    # parser.add_argument("--data-path", default=r"..\VOCdevkit_cap_c5_bin", help="VOC数据集路径")
+    parser.add_argument("--data-path", default=r"..\multi_defect_4", help="VOC数据集路径")
+    # parser.add_argument("--data-path", default=r"..\VOC_extra_defect_bin", help="VOC数据集路径")
     # exclude background
-    parser.add_argument("--num-classes", default=1, type=int)
+    parser.add_argument("--num-classes", default=4, type=int)
     parser.add_argument("--device", default="cuda", help="training device")
     parser.add_argument("--batch-size", default=6, type=int)
-    parser.add_argument("--epochs", default=100, type=int, metavar="N",
+    parser.add_argument("--epochs", default=50, type=int, metavar="N",
                         help="number of total epochs to train")
 
     parser.add_argument('--lr', default=3e-4, type=float, help='initial learning rate')
@@ -356,7 +367,7 @@ def parse_args(model_name=None):
 # http://localhost:6006/
 if __name__ == '__main__':
     setup_seed(1)
-    args = parse_args('X_unet_fin_all8')
+    args = parse_args()
     main(args)
 
 

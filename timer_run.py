@@ -28,18 +28,22 @@ def my_job(jobs,repeat=1):
             loop(key)
             sleep(20)
 if __name__ == '__main__':
-    repeat = 2 #重复次数
+    repeat = 5 #重复次数
     jobs ={
         # "Unet0": '',
         # "Unet_mobile_s": '',
         # 'lraspp_mobilenetv3_large': '',
-        # # "X_unet_fin_all": '',
+        # "X_unet_fin_all": '',
         # "FCN": '',
         # "SegNet": '',
         # "DenseASPP": '',
         # 'deeplabV3p': '',
-        "X_unet_fin_all2": '',
-        # "X_unet_fin_all": '',
+        # "X_unet_fin_all2": '',
+        # "X_unet_fin_all3": '',
+        # "X_unet_fin_all4": '',
+        # "X_unet_fin_all5": '',
+        # "X_unet_fin_all6": '',
+        "X_unet_fin_all8": '',
     }
 
     Timer(set_timer(sec=1),my_job,(jobs,repeat)).start()

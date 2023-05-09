@@ -30,7 +30,7 @@ def _create_folder(args):
         os.mkdir("logs")
     # 创建时间+模型名文件夹
     time_str = datetime.datetime.now().strftime("%m-%d_%H-%M-%S-")
-    log_dir = os.path.join("logs", time_str + args.model_name )
+    log_dir = os.path.join("logs", time_str + args.model_name + "_" + args.w_t)
     if not os.path.exists(log_dir):
         os.mkdir(log_dir)
     results_file = os.path.join(log_dir, "results.txt")
@@ -297,37 +297,31 @@ def create_model(args, in_channels, num_classes,base_c=32):
         model = X_unet_fin_all2(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
     elif args.model_name == "X_unet_fin_all3":
         model = X_unet_fin_all3(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
-    elif args.model_name == "X_unet_fin_all4":
-        model = X_unet_fin_all4(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
-    elif args.model_name == "X_unet_fin_all5":
-        model = X_unet_fin_all5(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
-    elif args.model_name == "X_unet_fin_all6":
-        model = X_unet_fin_all6(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
-    elif args.model_name == "X_unet_fin_all7":
-        model = X_unet_fin_all7(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
     elif args.model_name == "X_unet_fin_all8":
-        model = X_unet_fin_all8(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
+        model = X_unet_fin_all4(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
     else:
         raise ValueError("wrong model name")
     return initialize_weights(model)
-
+'''
+用于控制loss函数的权重
+'''
 def parse_args(model_name=None):
     import argparse
     parser = argparse.ArgumentParser(description="pytorch unet training")
 
-    parser.add_argument("--model_name", default=model_name, help="模型名称")
+    parser.add_argument("--model_name", default='X_unet_fin_all8', help="模型名称")
     parser.add_argument("--optimizer", default='adam',choices=['sgd','adam'] ,help="优化器")
     parser.add_argument("--base_size", default=256, type=int, help="图片缩放大小")
     parser.add_argument("--crop_size", default=256,  type=int, help="图片裁剪大小")
     parser.add_argument("--base_c", default=32, type=int, help="uent的基础通道数")
     parser.add_argument('--save_method',default='all' ,choices=['all','dict'],help='保存模型的方式')
     parser.add_argument('--pretrained', default='',help='预训练模型路径')
-    parser.add_argument('--w_t', default=0.5,help='dice loss的权重')
+    parser.add_argument('--w_t', default=model_name,help='dice loss的权重')
 
-    parser.add_argument("--data-path", default=r"..\VOCdevkit_cap_c5_bin", help="VOC数据集路径")
-    # parser.add_argument("--data-path", default=r"..\VOC_MLCC_8_mul", help="VOC数据集路径")
+    # parser.add_argument("--data-path", default=r"..\VOCdevkit_cap_c5_bin", help="VOC数据集路径")
+    parser.add_argument("--data-path", default=r"..\VOC_MLCC_8_mul", help="VOC数据集路径")
     # exclude background
-    parser.add_argument("--num-classes", default=1, type=int)
+    parser.add_argument("--num-classes", default=8, type=int)
     parser.add_argument("--device", default="cuda", help="training device")
     parser.add_argument("--batch-size", default=6, type=int)
     parser.add_argument("--epochs", default=100, type=int, metavar="N",
@@ -356,7 +350,7 @@ def parse_args(model_name=None):
 # http://localhost:6006/
 if __name__ == '__main__':
     setup_seed(1)
-    args = parse_args('X_unet_fin_all8')
+    args = parse_args('X_unet_fin_all2')
     main(args)
 
 

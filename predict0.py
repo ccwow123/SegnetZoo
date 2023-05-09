@@ -133,11 +133,11 @@ def main(args):
 def parse_args():
     parser = argparse.ArgumentParser(description="pytorch segnets training")
     # 主要
-    parser.add_argument("--weights_path", default=r'logs/04-27_09-28-50-X_unet_fin_all/best_model.pth', type=str, help="权重路径")
-    parser.add_argument("--data_path", default=r'..\VOC_extra_defect_bin', help="VOCdevkit 路径")
+    parser.add_argument("--weights_path", default=r'logs/05-08_16-24-18-X_unet_fin_all8/best_model.pth', type=str, help="权重路径")
+    parser.add_argument("--data_path", default=r'..\VOCdevkit_cap_c5_bin', help="VOCdevkit 路径")
     parser.add_argument("--num-classes", default=1, type=int,help="分类总数")
     parser.add_argument("--img-size", default=256, type=int,help="图片缩放大小")
-    parser.add_argument("--method", default="mask",  choices=["fusion", "mask", "contours"], help="输出方式")
+    parser.add_argument("--method", default="fusion",  choices=["fusion", "mask", "contours"], help="输出方式")
     # 其他
     parser.add_argument("--label", default="End skew", type=str, help="contours方式下的标签")
 

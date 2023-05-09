@@ -89,8 +89,8 @@ class SegmentationPresetTrain:
             trans.append(T.RandomHorizontalFlip(hflip_prob))
         trans.extend([
             T.CenterCrop(crop_size),
-            T.RandomHorizontalFlip(0.5),
-            T.RandomVerticalFlip(0.5),
+            # T.RandomHorizontalFlip(0.5),
+            # T.RandomVerticalFlip(0.5),
             # T.RandomRotation(90),
             # T.ColorJitter(),
             T.ToTensor(),
@@ -172,7 +172,7 @@ def main(args):
     start_time = time.time()
     time_calc = Time_calculater()
     for epoch in range(args.start_epoch, args.epochs):
-        mean_loss, lr = train_one_epoch(model,loss_fn,args.w_t, optimizer, train_loader, device, epoch, num_classes,
+        mean_loss, lr = train_one_epoch(model,loss_fn, optimizer, train_loader, device, epoch, num_classes,
                                         lr_scheduler=lr_scheduler, print_freq=args.print_freq, scaler=scaler)
         confmat, dice = evaluate(model, val_loader, device=device, num_classes=num_classes)
         # -----------------------保存日志-----------------------
@@ -298,15 +298,7 @@ def create_model(args, in_channels, num_classes,base_c=32):
     elif args.model_name == "X_unet_fin_all3":
         model = X_unet_fin_all3(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
     elif args.model_name == "X_unet_fin_all4":
-        model = X_unet_fin_all4(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
-    elif args.model_name == "X_unet_fin_all5":
-        model = X_unet_fin_all5(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
-    elif args.model_name == "X_unet_fin_all6":
-        model = X_unet_fin_all6(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
-    elif args.model_name == "X_unet_fin_all7":
-        model = X_unet_fin_all7(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
-    elif args.model_name == "X_unet_fin_all8":
-        model = X_unet_fin_all8(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
+       model = X_unet_fin_all4(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
     else:
         raise ValueError("wrong model name")
     return initialize_weights(model)
@@ -322,15 +314,14 @@ def parse_args(model_name=None):
     parser.add_argument("--base_c", default=32, type=int, help="uent的基础通道数")
     parser.add_argument('--save_method',default='all' ,choices=['all','dict'],help='保存模型的方式')
     parser.add_argument('--pretrained', default='',help='预训练模型路径')
-    parser.add_argument('--w_t', default=0.5,help='dice loss的权重')
 
     parser.add_argument("--data-path", default=r"..\VOCdevkit_cap_c5_bin", help="VOC数据集路径")
-    # parser.add_argument("--data-path", default=r"..\VOC_MLCC_8_mul", help="VOC数据集路径")
+    # parser.add_argument("--data-path", default=r"..\VOC_extra_defect_bin", help="VOC数据集路径")
     # exclude background
     parser.add_argument("--num-classes", default=1, type=int)
     parser.add_argument("--device", default="cuda", help="training device")
-    parser.add_argument("--batch-size", default=6, type=int)
-    parser.add_argument("--epochs", default=100, type=int, metavar="N",
+    parser.add_argument("--batch-size", default=10, type=int)
+    parser.add_argument("--epochs", default=50, type=int, metavar="N",
                         help="number of total epochs to train")
 
     parser.add_argument('--lr', default=3e-4, type=float, help='initial learning rate')
@@ -356,7 +347,7 @@ def parse_args(model_name=None):
 # http://localhost:6006/
 if __name__ == '__main__':
     setup_seed(1)
-    args = parse_args('X_unet_fin_all8')
+    args = parse_args('X_unet_fin_all2')
     main(args)
 
 
