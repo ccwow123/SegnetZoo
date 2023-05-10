@@ -14,12 +14,8 @@ def set_timer(hour=0, min=0, sec=0):
     return hour2sec(hour) + min2sec(min) + sec
 # 执行单个train
 def loop(cfg_path):
-    torch.cuda.empty_cache()
-    torch.cuda.empty_cache()
     args = parse_args(cfg_path)
     main(args)
-    torch.cuda.empty_cache()
-    torch.cuda.empty_cache()
 # 执行多个train
 def my_job(jobs,repeat=1):
     for key,_ in jobs.items():
@@ -28,22 +24,18 @@ def my_job(jobs,repeat=1):
             loop(key)
             sleep(20)
 if __name__ == '__main__':
-    repeat = 5 #重复次数
+    repeat = 1 #重复次数
     jobs ={
-        # "Unet0": '',
-        # "Unet_mobile_s": '',
-        # 'lraspp_mobilenetv3_large': '',
-        # "X_unet_fin_all": '',
-        # "FCN": '',
-        # "SegNet": '',
-        # "DenseASPP": '',
-        # 'deeplabV3p': '',
-        # "X_unet_fin_all2": '',
-        # "X_unet_fin_all3": '',
-        # "X_unet_fin_all4": '',
-        # "X_unet_fin_all5": '',
-        # "X_unet_fin_all6": '',
         "X_unet_fin_all8": '',
+        "Unet0": '',
+        "Unet_mobile_s": '',
+        "Unet_res": '',
+        'lraspp_mobilenetv3_large': '',
+        "FCN": '',
+        "SegNet": '',
+        "DenseASPP": '',
+        'deeplabV3p': '',
+
     }
 
     Timer(set_timer(sec=1),my_job,(jobs,repeat)).start()

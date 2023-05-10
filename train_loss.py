@@ -1,3 +1,4 @@
+import gc
 import os
 import random
 import time
@@ -57,7 +58,7 @@ def _load_dataset(args, batch_size):
                                                collate_fn=train_dataset.collate_fn,
                                                drop_last=True)
     val_loader = torch.utils.data.DataLoader(val_dataset,
-                                             batch_size=1,
+                                             batch_size=batch_size,
                                              num_workers=num_workers,
                                              pin_memory=True,
                                              collate_fn=val_dataset.collate_fn)
@@ -171,75 +172,85 @@ def main(args):
     best_dice = 0.
     start_time = time.time()
     time_calc = Time_calculater()
-    for epoch in range(args.start_epoch, args.epochs):
-        mean_loss, lr = train_one_epoch(model,loss_fn,args.w_t, optimizer, train_loader, device, epoch, num_classes,
-                                        lr_scheduler=lr_scheduler, print_freq=args.print_freq, scaler=scaler)
-        confmat, dice = evaluate(model, val_loader, device=device, num_classes=num_classes)
-        # -----------------------保存日志-----------------------
-        with open(results_file, "a") as f:
-            # 记录每个epoch对应的train_loss、lr以及验证集各指标
-            train_log="train_loss: {:.4f}, lr: {:.6f}".format(mean_loss, lr)
-            val_log=confmat
-            val_log["dice loss"]=format(dice, '.4f')
-            print('--train_log:',train_log)
-            print('--val_log:',val_log)
-            f.write("Epoch: {}  \n".format(epoch))
-            f.write("train_log: {}  \n".format(train_log))
-            f.write("val_log: {}  \n".format(val_log))
-            if epoch == args.epochs - 1:
-                # f.write("args: {}  \n".format(args))
-                model_size = calculater_1(model, (3, args.base_size, args.base_size), device)
-                f.write("model_name: -{}-  \n".format(args.model_name))
-                f.write("datasets: {}  \n".format(args.data_path))
-                f.write('flops:{:.2f}  params:{:.2f}  \n'.format(model_size[0], model_size[1]))
-            # -----------------------打印时间-----------------------
-            time_calc.time_cal(epoch, args.epochs)
-        # -----------------------保存tensorboard-----------------------
-        tb.add_scalar("train/loss", mean_loss, epoch)
-        tb.add_scalar("train/lr", lr, epoch)
-        tb.add_scalar("val/dice loss", dice, epoch)
-        tb.add_scalar("val/miou", confmat["miou"], epoch)
-        tb.add_scalar("val/acc", confmat["mpa"], epoch)
-        # 保存网路结构
-        tb.add_graph(model, torch.rand(1, 3, args.base_size, args.base_size).to(device))
-        # 写入到csv文件
-        # with open(log_dir + '/train_log.csv', 'a', newline='') as csvfile:
-        #     writer = csv.writer(csvfile)
-        #     writer.writerow([epoch, mean_loss, lr])
-        header_list = ["epoch", "dice", "miou", "mpa",'loss']
-        with open(log_dir + '/val_log.csv', 'a', newline='') as csvfile:
-            writer = csv.DictWriter(csvfile, fieldnames=header_list)
-            if epoch == 0:
-                writer.writeheader()
-            writer.writerow({"epoch": epoch, "dice": dice*100, "miou": confmat["miou"], "mpa": confmat["mpa"],'loss':mean_loss})
+    with torch.no_grad():
 
-        # -----------------------保存模型-----------------------
-        if args.save_best is True:
-            if best_dice < dice:
-                best_dice = dice
+        for epoch in range(args.start_epoch, args.epochs):
+            mean_loss, lr = train_one_epoch(model,loss_fn,args.w_t, optimizer, train_loader, device, epoch, num_classes,
+                                            lr_scheduler=lr_scheduler, print_freq=args.print_freq, scaler=scaler)
+            confmat, dice = evaluate(model, val_loader, device=device, num_classes=num_classes)
+            # -----------------------保存日志-----------------------
+            with open(results_file, "a") as f:
+                # 记录每个epoch对应的train_loss、lr以及验证集各指标
+                train_log="train_loss: {:.4f}, lr: {:.6f}".format(mean_loss, lr)
+                val_log=confmat
+                val_log["dice loss"]=format(dice, '.4f')
+                print('--train_log:',train_log)
+                print('--val_log:',val_log)
+                f.write("Epoch: {}  \n".format(epoch))
+                f.write("train_log: {}  \n".format(train_log))
+                f.write("val_log: {}  \n".format(val_log))
+                if epoch == args.epochs - 1:
+                    # f.write("args: {}  \n".format(args))
+                    model_size = calculater_1(model, (3, args.base_size, args.base_size), device)
+                    f.write("model_name: -{}-  \n".format(args.model_name))
+                    f.write("datasets: {}  \n".format(args.data_path))
+                    f.write('flops:{:.2f}  params:{:.2f}  \n'.format(model_size[0], model_size[1]))
+                # -----------------------打印时间-----------------------
+                time_calc.time_cal(epoch, args.epochs)
+            # -----------------------保存tensorboard-----------------------
+            tb.add_scalar("train/loss", mean_loss, epoch)
+            tb.add_scalar("train/lr", lr, epoch)
+            tb.add_scalar("val/dice loss", dice, epoch)
+            tb.add_scalar("val/miou", confmat["miou"], epoch)
+            tb.add_scalar("val/acc", confmat["mpa"], epoch)
+            # 保存网路结构
+            tb.add_graph(model, torch.rand(1, 3, args.base_size, args.base_size).to(device))
+            # 写入到csv文件
+            # with open(log_dir + '/train_log.csv', 'a', newline='') as csvfile:
+            #     writer = csv.writer(csvfile)
+            #     writer.writerow([epoch, mean_loss, lr])
+            header_list = ["epoch", "dice", "miou", "mpa",'pa','train_loss','lr','cpa','iou']
+            with open(log_dir + '/val_log.csv', 'a', newline='') as csvfile:
+                writer = csv.DictWriter(csvfile, fieldnames=header_list)
+                if epoch == 0:
+                    writer.writeheader()
+                writer.writerow({"epoch": epoch, "dice": dice*100, "miou": confmat["miou"], "mpa": confmat["mpa"],'pa':confmat['pa'],'train_loss':mean_loss,
+                                'lr':lr,'cpa': confmat['cpa'],'iou':confmat['iou'] })
+
+            # -----------------------保存模型-----------------------
+            if args.save_best is True:
+                if best_dice < dice:
+                    best_dice = dice
+                else:
+                    continue
+            # 模型结构、优化器、学习率更新策略、epoch、参数
+            if args.save_method == "all":
+                checkpoints = model
             else:
-                continue
-        # 模型结构、优化器、学习率更新策略、epoch、参数
-        if args.save_method == "all":
-            checkpoints = model
-        else:
-            checkpoints = {"model": model.state_dict(),
-                     "optimizer": optimizer.state_dict(),
-                     "lr_scheduler": lr_scheduler.state_dict(),
-                     "epoch": epoch,
-                     }
-            # 混合精度训练
-            if args.amp:
-                checkpoints["scaler"] = scaler.state_dict()
-        # 保存模型
-        if args.save_best is True:
-            torch.save(checkpoints, log_dir+"/best_model.pth")
-        else:
-            torch.save(checkpoints, log_dir+"/model_{}.pth".format(epoch))
+                checkpoints = {"model": model.state_dict(),
+                         "optimizer": optimizer.state_dict(),
+                         "lr_scheduler": lr_scheduler.state_dict(),
+                         "epoch": epoch,
+                         }
+                # 混合精度训练
+                if args.amp:
+                    checkpoints["scaler"] = scaler.state_dict()
+            # 保存模型
+            if args.save_best is True:
+                torch.save(checkpoints, log_dir+"/best_model.pth")
+            else:
+                torch.save(checkpoints, log_dir+"/model_{}.pth".format(epoch))
     #-----------------------训练结束-----------------------
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
     print("training time {}".format(total_time_str))
+#     释放内存
+    del model, optimizer, lr_scheduler, train_loader, val_loader, loss_fn, confmat, dice
+    torch.cuda.empty_cache()
+    torch.cuda.empty_cache()
+    gc.collect()
+    gc.collect()
+
 
 
 
@@ -297,15 +308,21 @@ def create_model(args, in_channels, num_classes,base_c=32):
         model = X_unet_fin_all2(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
     elif args.model_name == "X_unet_fin_all3":
         model = X_unet_fin_all3(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
-    elif args.model_name == "X_unet_fin_all8":
+    elif args.model_name == "X_unet_fin_all4":
         model = X_unet_fin_all4(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
+    elif args.model_name == "X_unet_fin_all5":
+        model = X_unet_fin_all5(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
+    elif args.model_name == "X_unet_fin_all6":
+        model = X_unet_fin_all6(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
+    elif args.model_name == "X_unet_fin_all7":
+        model = X_unet_fin_all7(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
+    elif args.model_name == "X_unet_fin_all8":
+        model = X_unet_fin_all8(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
     else:
         raise ValueError("wrong model name")
     return initialize_weights(model)
-'''
-用于控制loss函数的权重
-'''
-def parse_args(model_name=None):
+
+def parse_args(wt='0.5'):
     import argparse
     parser = argparse.ArgumentParser(description="pytorch unet training")
 
@@ -316,14 +333,14 @@ def parse_args(model_name=None):
     parser.add_argument("--base_c", default=32, type=int, help="uent的基础通道数")
     parser.add_argument('--save_method',default='all' ,choices=['all','dict'],help='保存模型的方式')
     parser.add_argument('--pretrained', default='',help='预训练模型路径')
-    parser.add_argument('--w_t', default=model_name,help='dice loss的权重')
+    parser.add_argument('--w_t', default=wt,help='dice loss的权重')
 
     # parser.add_argument("--data-path", default=r"..\VOCdevkit_cap_c5_bin", help="VOC数据集路径")
-    parser.add_argument("--data-path", default=r"..\VOC_MLCC_8_mul", help="VOC数据集路径")
+    parser.add_argument("--data-path", default=r"..\VOC_MLCC_6_multi", help="VOC数据集路径")
     # exclude background
-    parser.add_argument("--num-classes", default=8, type=int)
+    parser.add_argument("--num-classes", default=6, type=int)
     parser.add_argument("--device", default="cuda", help="training device")
-    parser.add_argument("--batch-size", default=6, type=int)
+    parser.add_argument("--batch-size", default=10, type=int)
     parser.add_argument("--epochs", default=100, type=int, metavar="N",
                         help="number of total epochs to train")
 
@@ -350,163 +367,6 @@ def parse_args(model_name=None):
 # http://localhost:6006/
 if __name__ == '__main__':
     setup_seed(1)
-    args = parse_args('X_unet_fin_all2')
+    args = parse_args('0.4')
     main(args)
 
-
-# # 建立模型
-# def create_model0(args,in_channels, num_classes, base_c=32):
-#     if args.model_name == "unet":
-#         model = UNet(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
-#     elif args.model_name == "Unet0":
-#         model = Unet0(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
-#     elif args.model_name == "Unet_res":
-#         model = Unet_EX(in_channels, num_classes, base_c=base_c,block_type='resnet')
-#     elif args.model_name == "Unet_resnest":
-#         model = Unet_EX(in_channels, num_classes, base_c=base_c, block_type='resnest')
-#     elif args.model_name == "Unet_res_cbam":
-#         model = Unet_Attention(in_channels, num_classes, base_c=base_c,block_type='resnest',attention='cbam')
-#     elif args.model_name == "Unet_res_se":
-#         model = Unet_Attention(in_channels, num_classes, base_c=base_c,block_type='resnest',attention='se')
-#     elif args.model_name == "Unet_res_ca":
-#         model = Unet_Attention(in_channels, num_classes, base_c=base_c,block_type='resnest',attention='ca')
-#     elif args.model_name == "Unet_res_simam":
-#         model = Unet_Attention(in_channels, num_classes, base_c=base_c,block_type='resnest',attention='simam')
-#     elif args.model_name == "Unet_mobile_s":
-#         model = Unet_lite(in_channels, num_classes, base_c=base_c,block_type='mobile_s')
-#     elif args.model_name == "Unet_shuffle":
-#         model = Unet_lite(in_channels, num_classes, base_c=base_c, block_type='shuffle')
-#     elif args.model_name == "Unet0_drop":
-#         model = Unet0_drop(in_channels, num_classes, base_c=base_c)
-#     elif args.model_name == "deeplabV3p":
-#         model = deeplabv3_resnet50(num_classes=num_classes, pretrained_backbone=False)
-#     elif args.model_name == "lraspp_mobilenetv3_large":
-#         model = lraspp_mobilenetv3_large(num_classes=num_classes, pretrain_backbone=False)
-#
-#     elif args.model_name == "Unet_C3":
-#         model = Unet_best(in_channels, num_classes, base_c=base_c,block='C3')
-#     elif args.model_name == "Unet_C3_spp":
-#         model = Unet_best(in_channels, num_classes, base_c=base_c,block='C3',spp='spp')
-#     elif args.model_name == "Unet_C3_sppf":
-#         model = Unet_best(in_channels, num_classes, base_c=base_c,block='C3',spp='sppf')
-#     elif args.model_name == "Unet_C3_cbam":
-#         model = Unet_best(in_channels, num_classes, base_c=base_c, block='C3', att='cbam')
-#     elif args.model_name == "Unet_C3_sam":
-#         model = Unet_best(in_channels, num_classes, base_c=base_c, block='C3', att='sam')
-#     elif args.model_name == "Unet_C3_sppf_cbam":
-#         model = Unet_best(in_channels, num_classes, base_c=base_c, block='C3', spp='sppf', att='cbam')
-#     elif args.model_name == "Unet_C3_sppf_sam":
-#         model = Unet_best(in_channels, num_classes, base_c=base_c, block='C3', spp='sppf', att='sam')
-#     elif args.model_name == "Unet_C3_sppf_ca":
-#         model = Unet_best(in_channels, num_classes, base_c=base_c, block='C3', spp='sppf', att='ca')
-#
-#     elif args.model_name == "Unet_C3_sppf_cbam_r":
-#         model = Unet_best_right(in_channels, num_classes, base_c=base_c, block='C3', spp='sppf', att='cbam')
-#     elif args.model_name == "Unet_C3_sppf_sam_r":
-#         model = Unet_best_right(in_channels, num_classes, base_c=base_c, block='C3', spp='sppf', att='sam')
-#     elif args.model_name == "Unet_C3_sppf_ca_r":
-#         model = Unet_best_right(in_channels, num_classes, base_c=base_c, block='C3', spp='sppf', att='ca')
-#
-#     elif args.model_name == "Unet_C3CSP":
-#         model = Unet_best(in_channels, num_classes, base_c=base_c, block='C3CSP')
-#     elif args.model_name == "Unet_C3CSP_sppf":
-#         model = Unet_best(in_channels, num_classes, base_c=base_c, block='C3CSP', spp='sppf')
-#     elif args.model_name == "Unet_C3CSP_sppf_sam":
-#         model = Unet_best(in_channels, num_classes, base_c=base_c, block='C3CSP', spp='sppf', att='sam')
-#     # 把up_CON也改了
-#     elif args.model_name == "Unet_C33":
-#         model = Unet_C3(in_channels, num_classes,n=3,base_c=base_c)
-#     elif args.model_name == "Unet_C33_sppf":
-#         model = Unet_C3(in_channels, num_classes,n=3,base_c=base_c,spp='sppf')
-#     elif args.model_name == "Unet_C33_sppf_sam":
-#         model = Unet_C3(in_channels, num_classes,n=3,base_c=base_c,spp='sppf',att='sam')
-#
-#     elif args.model_name == "Unet_C33e":#e为扩张率，设置为0.25，与resnet一样
-#         model = Unet_C3(in_channels, num_classes,n=3,e=0.25,base_c=base_c)
-#     elif args.model_name == "Unet_C33e_sppf":
-#         model = Unet_C3(in_channels, num_classes, n=3, e=0.25, base_c=base_c, spp='sppf')
-#     elif args.model_name == "Unet_C33e_sppf_sam":
-#         model = Unet_C3(in_channels, num_classes, n=3, e=0.25, base_c=base_c, spp='sppf', att='sam')
-#
-#     elif args.model_name == "Unet_cat":#n=3, e=0.25,
-#         model = Unet_cat(in_channels, num_classes, base_c=base_c)
-#     elif args.model_name == "Unet_cat_sppf":
-#         model = Unet_cat(in_channels, num_classes, base_c=base_c, spp='sppf')
-#     #重构
-#     elif args.model_name == "X_Unet":
-#         model = X_Unet(in_channels, num_classes, base_c=base_c)
-#
-#     else:
-#         raise ValueError("wrong model name")
-#     return initialize_weights(model)
-# def create_model1(args,in_channels, num_classes, base_c=32):
-#     if args.model_name == "unet":
-#         model = UNet(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
-#     elif args.model_name == "Unet0":
-#         model = Unet0(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
-#
-#     #重构
-#     elif args.model_name == "X_Unet":
-#         model = X_Unet(in_channels, num_classes, base_c=base_c)
-#     elif args.model_name == "X_Unet_v2":
-#         model = X_Unet_v2(in_channels, num_classes, base_c=base_c)
-#     elif args.model_name == "X_Unet_v3":
-#         model = X_Unet_v3(in_channels, num_classes, base_c=base_c)
-#     elif args.model_name == "X_Unet_v4":
-#         model = X_Unet_v4(in_channels, num_classes, base_c=base_c)
-#     elif args.model_name == "X_Unet_v4_2":
-#         model = X_Unet_v4_2(in_channels, num_classes, base_c=base_c)
-#     elif args.model_name == "X_Unet_v5":
-#         model = X_Unet_v5(in_channels, num_classes, base_c=base_c)
-#
-#     elif args.model_name == "Unet0c3":
-#         model = Unet0c3(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
-#     elif args.model_name == "Unet0c3_v2":
-#         model = Unet0c3_v2(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
-#     elif args.model_name == "Unet0c3_v2_1":
-#         model = Unet0c3_v2_1(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
-#     elif args.model_name == "Unet0c3_v2_2":
-#         model = Unet0c3_v2_2(in_channels=in_channels, num_classes=num_classes, base_c=base_c, attention='ca')
-#     elif args.model_name == "Unet0c3_v2_3":
-#         model = Unet0c3_v2_3(in_channels=in_channels, num_classes=num_classes, base_c=base_c, attention='ca')
-#     elif args.model_name == "Unet0c3_v2_3cbam":
-#         model = Unet0c3_v2_3(in_channels=in_channels, num_classes=num_classes, base_c=base_c, attention='CBAM')
-#
-#     elif args.model_name == "Unet0c3_v2_4ca":
-#         model = Unet0c3_v2_4(in_channels=in_channels, num_classes=num_classes, base_c=base_c, attention='ca')
-#     elif args.model_name == "Unet0c3_v2_4cbam":
-#         model = Unet0c3_v2_4(in_channels=in_channels, num_classes=num_classes, base_c=base_c, attention='CBAM')
-#
-#     elif args.model_name == "Unet0c3_v3":
-#         model = Unet0c3_v3(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
-#     elif args.model_name == "Unet0c3_v3_1":
-#         model = Unet0c3_v3_1(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
-#     elif args.model_name == "Unet0c3_v4":
-#         model = Unet0c3_v4(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
-#
-#     elif args.model_name == "Unet0c3_v5":
-#         model = Unet0c3_v5(in_channels=in_channels, num_classes=num_classes, base_c=base_c, attention='CBAM')
-#     elif args.model_name == "Unet0c3_v6":
-#         model = Unet0c3_v6(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
-#
-#     elif args.model_name == "X_unet0":
-#         model = X_unet0(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
-#     elif args.model_name == "X_unet1":
-#         model = X_unet1(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
-#     elif args.model_name == "X_unet2":
-#         model = X_unet2(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
-#     elif args.model_name == "X_unet3":
-#         model = X_unet3(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
-#     elif args.model_name == "X_unet4":
-#         model = X_unet4(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
-#     elif args.model_name == "X_unet5":
-#         model = X_unet5(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
-#     elif args.model_name == "X_unet6":
-#         model = X_unet6(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
-#     elif args.model_name == "X_unet7":
-#         model = X_unet7(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
-#     elif args.model_name == "X_unet9":
-#         model = X_unet9(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
-#     else:
-#         raise ValueError("wrong model name")
-#     return initialize_weights(model)
