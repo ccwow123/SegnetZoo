@@ -172,74 +172,73 @@ def main(args):
     best_dice = 0.
     start_time = time.time()
     time_calc = Time_calculater()
-    with torch.no_grad():
 
-        for epoch in range(args.start_epoch, args.epochs):
-            mean_loss, lr = train_one_epoch(model,loss_fn,args.w_t, optimizer, train_loader, device, epoch, num_classes,
-                                            lr_scheduler=lr_scheduler, print_freq=args.print_freq, scaler=scaler)
-            confmat, dice = evaluate(model, val_loader, device=device, num_classes=num_classes)
-            # -----------------------保存日志-----------------------
-            with open(results_file, "a") as f:
-                # 记录每个epoch对应的train_loss、lr以及验证集各指标
-                train_log="train_loss: {:.4f}, lr: {:.6f}".format(mean_loss, lr)
-                val_log=confmat
-                val_log["dice loss"]=format(dice, '.4f')
-                print('--train_log:',train_log)
-                print('--val_log:',val_log)
-                f.write("Epoch: {}  \n".format(epoch))
-                f.write("train_log: {}  \n".format(train_log))
-                f.write("val_log: {}  \n".format(val_log))
-                if epoch == args.epochs - 1:
-                    # f.write("args: {}  \n".format(args))
-                    model_size = calculater_1(model, (3, args.base_size, args.base_size), device)
-                    f.write("model_name: -{}-  \n".format(args.model_name))
-                    f.write("datasets: {}  \n".format(args.data_path))
-                    f.write('flops:{:.2f}  params:{:.2f}  \n'.format(model_size[0], model_size[1]))
-                # -----------------------打印时间-----------------------
-                time_calc.time_cal(epoch, args.epochs)
-            # -----------------------保存tensorboard-----------------------
-            tb.add_scalar("train/loss", mean_loss, epoch)
-            tb.add_scalar("train/lr", lr, epoch)
-            tb.add_scalar("val/dice loss", dice, epoch)
-            tb.add_scalar("val/miou", confmat["miou"], epoch)
-            tb.add_scalar("val/acc", confmat["mpa"], epoch)
-            # 保存网路结构
-            tb.add_graph(model, torch.rand(1, 3, args.base_size, args.base_size).to(device))
-            # 写入到csv文件
-            # with open(log_dir + '/train_log.csv', 'a', newline='') as csvfile:
-            #     writer = csv.writer(csvfile)
-            #     writer.writerow([epoch, mean_loss, lr])
-            header_list = ["epoch", "dice", "miou", "mpa",'pa','train_loss','lr','cpa','iou']
-            with open(log_dir + '/val_log.csv', 'a', newline='') as csvfile:
-                writer = csv.DictWriter(csvfile, fieldnames=header_list)
-                if epoch == 0:
-                    writer.writeheader()
-                writer.writerow({"epoch": epoch, "dice": dice*100, "miou": confmat["miou"], "mpa": confmat["mpa"],'pa':confmat['pa'],'train_loss':mean_loss,
-                                'lr':lr,'cpa': confmat['cpa'],'iou':confmat['iou'] })
+    for epoch in range(args.start_epoch, args.epochs):
+        mean_loss, lr = train_one_epoch(model,loss_fn,args.w_t, optimizer, train_loader, device, epoch, num_classes,
+                                        lr_scheduler=lr_scheduler, print_freq=args.print_freq, scaler=scaler)
+        confmat, dice = evaluate(model, val_loader, device=device, num_classes=num_classes)
+        # -----------------------保存日志-----------------------
+        with open(results_file, "a") as f:
+            # 记录每个epoch对应的train_loss、lr以及验证集各指标
+            train_log="train_loss: {:.4f}, lr: {:.6f}".format(mean_loss, lr)
+            val_log=confmat
+            val_log["dice loss"]=format(dice, '.4f')
+            print('--train_log:',train_log)
+            print('--val_log:',val_log)
+            f.write("Epoch: {}  \n".format(epoch))
+            f.write("train_log: {}  \n".format(train_log))
+            f.write("val_log: {}  \n".format(val_log))
+            if epoch == args.epochs - 1:
+                # f.write("args: {}  \n".format(args))
+                model_size = calculater_1(model, (3, args.base_size, args.base_size), device)
+                f.write("model_name: -{}-  \n".format(args.model_name))
+                f.write("datasets: {}  \n".format(args.data_path))
+                f.write('flops:{:.2f}  params:{:.2f}  \n'.format(model_size[0], model_size[1]))
+            # -----------------------打印时间-----------------------
+            time_calc.time_cal(epoch, args.epochs)
+        # -----------------------保存tensorboard-----------------------
+        tb.add_scalar("train/loss", mean_loss, epoch)
+        tb.add_scalar("train/lr", lr, epoch)
+        tb.add_scalar("val/dice loss", dice, epoch)
+        tb.add_scalar("val/miou", confmat["miou"], epoch)
+        tb.add_scalar("val/acc", confmat["mpa"], epoch)
+        # 保存网路结构
+        tb.add_graph(model, torch.rand(1, 3, args.base_size, args.base_size).to(device))
+        # 写入到csv文件
+        # with open(log_dir + '/train_log.csv', 'a', newline='') as csvfile:
+        #     writer = csv.writer(csvfile)
+        #     writer.writerow([epoch, mean_loss, lr])
+        header_list = ["epoch", "dice", "miou", "mpa",'pa','train_loss','lr','cpa','iou']
+        with open(log_dir + '/val_log.csv', 'a', newline='') as csvfile:
+            writer = csv.DictWriter(csvfile, fieldnames=header_list)
+            if epoch == 0:
+                writer.writeheader()
+            writer.writerow({"epoch": epoch, "dice": dice*100, "miou": confmat["miou"], "mpa": confmat["mpa"],'pa':confmat['pa'],'train_loss':mean_loss,
+                            'lr':lr,'cpa': confmat['cpa'],'iou':confmat['iou'] })
 
-            # -----------------------保存模型-----------------------
-            if args.save_best is True:
-                if best_dice < dice:
-                    best_dice = dice
-                else:
-                    continue
-            # 模型结构、优化器、学习率更新策略、epoch、参数
-            if args.save_method == "all":
-                checkpoints = model
+        # -----------------------保存模型-----------------------
+        if args.save_best is True:
+            if best_dice < dice:
+                best_dice = dice
             else:
-                checkpoints = {"model": model.state_dict(),
-                         "optimizer": optimizer.state_dict(),
-                         "lr_scheduler": lr_scheduler.state_dict(),
-                         "epoch": epoch,
-                         }
-                # 混合精度训练
-                if args.amp:
-                    checkpoints["scaler"] = scaler.state_dict()
-            # 保存模型
-            if args.save_best is True:
-                torch.save(checkpoints, log_dir+"/best_model.pth")
-            else:
-                torch.save(checkpoints, log_dir+"/model_{}.pth".format(epoch))
+                continue
+        # 模型结构、优化器、学习率更新策略、epoch、参数
+        if args.save_method == "all":
+            checkpoints = model
+        else:
+            checkpoints = {"model": model.state_dict(),
+                     "optimizer": optimizer.state_dict(),
+                     "lr_scheduler": lr_scheduler.state_dict(),
+                     "epoch": epoch,
+                     }
+            # 混合精度训练
+            if args.amp:
+                checkpoints["scaler"] = scaler.state_dict()
+        # 保存模型
+        if args.save_best is True:
+            torch.save(checkpoints, log_dir+"/best_model.pth")
+        else:
+            torch.save(checkpoints, log_dir+"/model_{}.pth".format(epoch))
     #-----------------------训练结束-----------------------
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
