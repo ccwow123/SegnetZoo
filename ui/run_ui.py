@@ -10,6 +10,7 @@ import torch
 from PIL import Image
 from PyQt5 import QtWidgets, QtGui, QtCore
 from PyQt5 import uic
+from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QImage, QPixmap
 from PyQt5.QtWidgets import *
 from torchvision import transforms
@@ -54,6 +55,19 @@ class MyWindow(QWidget):
 
 
     # ++++++++++++++++++++++++主要槽函数++++++++++++++++++++
+    def append_text(self, text):
+        # 获取textBrowser的滚动条
+        scrollbar = self.ui.textBrowser.verticalScrollBar()
+        # 将滚动条设置到最底部
+        scrollbar.setValue(scrollbar.maximum())
+        # show text
+        self.ui.textBrowser.append(text)
+        # 获取textBrowser的滚动条
+        scrollbar = self.ui.textBrowser.verticalScrollBar()
+        # 将滚动条设置到最底部
+        scrollbar.setValue(scrollbar.maximum())
+
+
     def enable_controls(self):
         '''启用控件'''
         self.ui.btn_open.setEnabled(self.btn_init_trigger)
@@ -82,7 +96,7 @@ class MyWindow(QWidget):
         else:
             self.device = 'cpu'
             self.ui.btn_device.setText('CPU')
-        self.ui.textBrowser.append('当前设备：' + self.device)
+        self.append_text('当前设备：' + self.device)
 
     def auto_find_model(self):
         '''自动查找模型'''
@@ -90,23 +104,23 @@ class MyWindow(QWidget):
         for pth in pth_list:
             if pth.endswith('.pth'):
                 self.ui.comboBox_pt.addItem(pth)
-        self.ui.textBrowser.append('已找到模型：' + str(pth_list))
+        self.append_text('已找到模型：' + str(pth_list))
 
     def start_thread_model_init(self):
         threading.Thread(target=self.model_init).start()
     def change_model(self):
         '''改变权重'''
         self.model_path = self.ui.comboBox_pt.currentText()
-        self.ui.textBrowser.append('当前模型：' + self.model_path)
+        self.append_text('当前模型：' + self.model_path)
     def model_init(self):
         '''模型初始化'''
         self.btn_init_trigger = True # 模型初始化按钮触发状态为True，代表已经按下
         self.change_model()
-        self.ui.textBrowser.append('模型初始化中...')
+        self.append_text('模型初始化中...')
         # 加载模型
         model = torch.load(self.ROOT_path + '/model/' + self.model_path).to(self.device)
         model.eval()
-        self.ui.textBrowser.append('模型初始化完成！')
+        self.append_text('模型初始化完成！')
         self.model = model
         # 刷新控件状态
         self.enable_controls()
@@ -120,7 +134,7 @@ class MyWindow(QWidget):
             win.setPixmap(scaled_pixmap)
         self.btn_open_trigger = True # 打开图片按钮触发状态为True，代表已经按下
         self.img_path, _ = QFileDialog.getOpenFileName(self, "打开图片", "", "*.jpg;;*.png;;All Files(*)")
-        self.ui.textBrowser.append('图片路径：' + self.img_path)
+        self.append_text('图片路径：' + self.img_path)
         # 显示图片
         show_image(self.img_path, self.ui.imgin_win)
         # 清空输出图片
@@ -165,12 +179,12 @@ class MyWindow(QWidget):
                 # 将 RGB 颜色值转换为 BGR 颜色值
                 color_bgr = (color_rgb[2], color_rgb[1], color_rgb[0])
                 cv2.putText(mask_cv, label, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, color_bgr, 2)
-                self.ui.textBrowser.append('缺陷类型：' + label)
+                self.append_text('缺陷类型：' + label)
 
             # 保存图片的路径
             img_out_path = os.path.join(self.output_folder, os.path.basename(self.img_path))
             print("保存位置: ", img_out_path)
-            self.ui.textBrowser.append("保存位置: "+img_out_path)
+            self.append_text("保存位置: "+img_out_path)
 
             # 输出图片的方式
             if self.method == "fusion":
