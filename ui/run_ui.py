@@ -19,7 +19,7 @@ class MyWindow(QWidget):
     def __init__(self):
         super().__init__()
         # 一些全局变量
-        self.ROOT_path = current_directory = os.getcwd()
+        self.ROOT_path = os.getcwd()
         self.output_folder = self.ROOT_path+'./output/'
         self.device = 'cpu'
         self.classes = ['E exposure','E skew','P extend','P broken','P Indentation','E sticky impurities']
@@ -36,19 +36,16 @@ class MyWindow(QWidget):
         # self.ui.setWindowIcon(QIcon(os.getcwd() + '\\data\\source_image\\Detective.ico'))
         self.ui.setWindowTitle("检测平台")
 
-        # 提取要操作的控件
-        # self.btn_open = self.ui.btn_open
-        # self.btn_testPic = self.ui.btn_testPic
-        # self.btn_init = self.ui.btn_init
-        # self.label_raw = self.ui.label_raw
-        # self.label_result = self.ui.label_result
-        # self.comboBox_pt = self.ui.comboBox_pt
-        # self.textBrowser = self.ui.textBrowser
+        self.btn_init_trigger = False # 模型初始化按钮触发状态
+        self.btn_open_trigger = False # 打开图片按钮触发状态
+        self.btn_detectPic_trigger = False # 检测图片按钮触发状态
+        self.enable_controls()# 启用控件
+
 
         # 绑定信号与槽函数
         # self.comboBox_pt.currentTextChanged.connect(self.change_model)
         # self.ui.btn_init.clicked.connect(self.model_init)
-        self.ui.btn_init.clicked.connect(self.start_model_init_thread)
+        self.ui.btn_init.clicked.connect(self.start_thread_model_init)
         self.ui.btn_open.clicked.connect(self.openimage)
         self.ui.btn_detectPic.clicked.connect(self.detect_image)
         self.ui.btn_device.clicked.connect(self.change_device)
@@ -57,14 +54,20 @@ class MyWindow(QWidget):
         self.auto_find_model()
 
     # ++++++++++++++++++++++++主要槽函数++++++++++++++++++++
+    def enable_controls(self):
+        '''启用控件'''
+        self.ui.btn_open.setEnabled(self.btn_init_trigger)
+        self.ui.btn_detectPic.setEnabled(self.btn_open_trigger)
+
     def create_output_folder(self):
         '''创建输出文件夹'''
         if not os.path.exists(self.output_folder):
             os.makedirs(self.output_folder)
+
     def change_device(self):
         '''切换设备'''
         if self.device == 'cpu':
-            self.device = 'gpu'
+            self.device = 'cuda'
             self.ui.btn_device.setText('GPU')
         else:
             self.device = 'cpu'
@@ -79,15 +82,15 @@ class MyWindow(QWidget):
                 self.ui.comboBox_pt.addItem(pth)
         self.ui.textBrowser.append('已找到模型：' + str(pth_list))
 
+    def start_thread_model_init(self):
+        threading.Thread(target=self.model_init).start()
     def change_model(self):
         '''改变权重'''
         self.model_path = self.ui.comboBox_pt.currentText()
         self.ui.textBrowser.append('当前模型：' + self.model_path)
-
-    def start_model_init_thread(self):
-        threading.Thread(target=self.model_init).start()
     def model_init(self):
         '''模型初始化'''
+        self.btn_init_trigger = True # 模型初始化按钮触发状态为True，代表已经按下
         self.change_model()
         self.ui.textBrowser.append('模型初始化中...')
         # 加载模型
@@ -95,6 +98,8 @@ class MyWindow(QWidget):
         model.eval()
         self.ui.textBrowser.append('模型初始化完成！')
         self.model = model
+        # 刷新控件状态
+        self.enable_controls()
 
     def openimage(self):
         '''打开图片'''
@@ -104,10 +109,13 @@ class MyWindow(QWidget):
             scaled_pixmap = pixmap.scaled(size, QtCore.Qt.KeepAspectRatio, QtCore.Qt.SmoothTransformation)
             win.setPixmap(scaled_pixmap)
 
+        self.btn_open_trigger = True # 打开图片按钮触发状态为True，代表已经按下
         self.img_path, _ = QFileDialog.getOpenFileName(self, "打开图片", "", "*.jpg;;*.png;;All Files(*)")
         self.ui.textBrowser.append('图片路径：' + self.img_path)
         # 显示图片
         show_image(self.img_path, self.ui.imgin_win)
+        # 刷新控件状态
+        self.enable_controls()
 
     def detect_image(self):
         '''检测图片'''
@@ -151,7 +159,7 @@ class MyWindow(QWidget):
             # 保存图片的路径
             img_out_path = os.path.join(self.output_folder, os.path.basename(self.img_path))
             print("保存位置: ", img_out_path)
-            self.ui.textBrowser.append("保存位置: ", img_out_path)
+            self.ui.textBrowser.append("保存位置: "+img_out_path)
 
             # 输出图片的方式
             if self.method == "fusion":
