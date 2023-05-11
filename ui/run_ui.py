@@ -20,7 +20,7 @@ class MyWindow(QWidget):
         super().__init__()
         # 一些全局变量
         self.ROOT_path = os.getcwd()
-        self.output_folder = self.ROOT_path+'./output/'
+        self.output_folder = os.path.join(self.ROOT_path, 'output')
         self.device = 'cpu'
         self.classes = ['E exposure','E skew','P extend','P broken','P Indentation','E sticky impurities']
         self.method = 'mask'
@@ -39,25 +39,35 @@ class MyWindow(QWidget):
         self.btn_init_trigger = False # 模型初始化按钮触发状态
         self.btn_open_trigger = False # 打开图片按钮触发状态
         self.btn_detectPic_trigger = False # 检测图片按钮触发状态
+        # 自动执行的函数
         self.enable_controls()# 启用控件
-
-
+        self.method_init()# 初始化方法
+        self.create_output_folder()# 创建输出文件夹
+        self.auto_find_model()# 自动查找模型
         # 绑定信号与槽函数
-        # self.comboBox_pt.currentTextChanged.connect(self.change_model)
-        # self.ui.btn_init.clicked.connect(self.model_init)
+        self.ui.btn_device.clicked.connect(self.change_device)
         self.ui.btn_init.clicked.connect(self.start_thread_model_init)
         self.ui.btn_open.clicked.connect(self.openimage)
         self.ui.btn_detectPic.clicked.connect(self.detect_image)
-        self.ui.btn_device.clicked.connect(self.change_device)
-        # # 自动执行的函数
-        self.create_output_folder()
-        self.auto_find_model()
+        # comboBox刷新
+        self.ui.comboBox_method.currentIndexChanged.connect(self.change_method)
+
 
     # ++++++++++++++++++++++++主要槽函数++++++++++++++++++++
     def enable_controls(self):
         '''启用控件'''
         self.ui.btn_open.setEnabled(self.btn_init_trigger)
         self.ui.btn_detectPic.setEnabled(self.btn_open_trigger)
+
+    def method_init(self):
+        '''输出模式初始化'''
+        self.ui.comboBox_method.addItem('mask')
+        self.ui.comboBox_method.addItem('fusion')
+
+    def change_method(self):
+        '''改变输出模式'''
+        self.method = self.ui.comboBox_method.currentText()
+        self.ui.textBrowser.append('当前输出模式：' + self.method)
 
     def create_output_folder(self):
         '''创建输出文件夹'''
@@ -76,7 +86,7 @@ class MyWindow(QWidget):
 
     def auto_find_model(self):
         '''自动查找模型'''
-        pth_list = os.listdir(self.ROOT_path+'/model')
+        pth_list = os.listdir(os.path.join(self.ROOT_path, 'model'))
         for pth in pth_list:
             if pth.endswith('.pth'):
                 self.ui.comboBox_pt.addItem(pth)
@@ -108,12 +118,13 @@ class MyWindow(QWidget):
             size = win.size()
             scaled_pixmap = pixmap.scaled(size, QtCore.Qt.KeepAspectRatio, QtCore.Qt.SmoothTransformation)
             win.setPixmap(scaled_pixmap)
-
         self.btn_open_trigger = True # 打开图片按钮触发状态为True，代表已经按下
         self.img_path, _ = QFileDialog.getOpenFileName(self, "打开图片", "", "*.jpg;;*.png;;All Files(*)")
         self.ui.textBrowser.append('图片路径：' + self.img_path)
         # 显示图片
         show_image(self.img_path, self.ui.imgin_win)
+        # 清空输出图片
+        self.ui.imgout_win.clear()
         # 刷新控件状态
         self.enable_controls()
 
