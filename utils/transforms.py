@@ -136,3 +136,10 @@ class ColorJitter(object):
     def __call__(self, image, target):
         image = self.color_jitter(image)
         return image, target
+# 灰度化
+class Grayscale(object):
+    def __init__(self):
+        self.grayscale = T.Grayscale(num_output_channels=3)
+    def __call__(self, image, target):
+        image = self.grayscale(image)
+        return image, target

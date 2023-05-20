@@ -92,6 +92,7 @@ class SegmentationPresetTrain:
             T.CenterCrop(crop_size),
             T.RandomHorizontalFlip(0.5),
             T.RandomVerticalFlip(0.5),
+            T.Grayscale(),
             # T.RandomRotation(90),
             # T.ColorJitter(),
             T.ToTensor(),
