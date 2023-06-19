@@ -1,8 +1,8 @@
-import gc
 import os
 import random
 import time
 import datetime
+import gc
 
 import numpy as np
 import torch
@@ -31,7 +31,7 @@ def _create_folder(args):
         os.mkdir("logs")
     # 创建时间+模型名文件夹
     time_str = datetime.datetime.now().strftime("%m-%d_%H-%M-%S-")
-    log_dir = os.path.join("logs", time_str + args.model_name + "_" + args.w_t)
+    log_dir = os.path.join("logs", time_str + args.model_name )
     if not os.path.exists(log_dir):
         os.mkdir(log_dir)
     results_file = os.path.join(log_dir, "results.txt")
@@ -64,7 +64,6 @@ def _load_dataset(args, batch_size):
                                              collate_fn=val_dataset.collate_fn)
     return train_loader, val_loader
 
-
 def initialize_weights(model):
     for m in model.modules():
         # 判断是否属于Conv2d
@@ -92,6 +91,7 @@ class SegmentationPresetTrain:
             T.CenterCrop(crop_size),
             T.RandomHorizontalFlip(0.5),
             T.RandomVerticalFlip(0.5),
+            T.Grayscale(),
             # T.RandomRotation(90),
             # T.ColorJitter(),
             T.ToTensor(),
@@ -121,7 +121,7 @@ def get_transform(args,train, mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.2
     else:
         return SegmentationPresetEval(base_size,mean=mean, std=std)
 
-def main(args):
+def main0(args):
     #-----------------------初始化-----------------------
     log_dir, results_file=_create_folder(args)
     tb = SummaryWriter(log_dir=log_dir)
@@ -250,97 +250,143 @@ def main(args):
     gc.collect()
     gc.collect()
 
+def main(args):
+    import torch
+    import torch.nn as nn
+    import torch.optim as optim
+    from torch.utils.data import DataLoader
+    from sklearn.model_selection import KFold
 
+    device = torch.device(args.device if torch.cuda.is_available() else "cpu")
+
+    # 定义模型结构
+    num_classes = args.num_classes + 1
+    model = create_model(args,in_channels=3,num_classes=num_classes,base_c=args.base_c).to(device)
+
+    # 定义损失函数和优化器
+    criterion = nn.CrossEntropyLoss()
+    optimizer = optim.Adam(model.parameters())
+
+    # 定义数据集和数据加载器
+    dataset =  VOCSegmentation(args.data_path,
+                                    year="2007",
+                                    transforms=get_transform(args,train=True),
+                                    txt_name="trainval.txt")
+    dataloader = torch.utils.data.DataLoader(dataset,
+                                               batch_size=args.batch_size,
+                                               num_workers=0,
+                                               shuffle=True,
+                                               pin_memory=True,
+                                               collate_fn=dataset.collate_fn,
+                                               drop_last=True)
+
+
+    # 定义折数
+    num_folds = 5
+
+    # 定义交叉验证
+    kf = KFold(n_splits=num_folds, shuffle=True)
+
+    # 开始交叉验证训练
+    for fold, (train_indices, val_indices) in enumerate(kf.split(dataset)):
+        print(f"Fold {fold + 1}")
+
+        # 创建训练集和验证集的子集
+        train_subset = torch.utils.data.Subset(dataset, train_indices)
+        val_subset = torch.utils.data.Subset(dataset, val_indices)
+
+        # 创建训练集和验证集的数据加载器
+        train_dataloader = DataLoader(train_subset,
+                                               batch_size=args.batch_size,
+                                               num_workers=0,
+                                               shuffle=True,
+                                               pin_memory=True,
+                                               collate_fn=dataset.collate_fn,
+                                               drop_last=True)
+        val_dataloader = DataLoader(val_subset,
+                                               batch_size=args.batch_size,
+                                               num_workers=0,
+                                               shuffle=True,
+                                               pin_memory=True,
+                                               collate_fn=dataset.collate_fn,
+                                               drop_last=True)
+
+        # 训练当前折的模型
+        for epoch in range(10):
+            model.train()  # 设置为训练模式
+            train_loss = 0.0
+
+            for inputs, labels in train_dataloader:
+                optimizer.zero_grad()
+                inputs, labels = inputs.to(device), labels.to(device)
+                outputs = model(inputs)
+                loss = criterion(outputs, labels)
+                loss.backward()
+                optimizer.step()
+                train_loss += loss.item()
+
+            avg_train_loss = train_loss / len(train_dataloader)
+            print(f"Epoch {epoch + 1} - Train Loss: {avg_train_loss}")
+
+            # 在验证集上评估当前折的模型
+            model.eval()  # 设置为评估模式
+            val_loss = 0.0
+
+            with torch.no_grad():
+                for inputs, labels in val_dataloader:
+                    inputs, labels = inputs.to(device), labels.to(device)
+                    outputs = model(inputs)
+                    loss = criterion(outputs, labels)
+                    val_loss += loss.item()
+
+            avg_val_loss = val_loss / len(val_dataloader)
+            print(f"Epoch {epoch + 1} - Validation Loss: {avg_val_loss}")
+
+        # 在当前折结束后保存模型等操作
+
+    # 所有折的训练结束后进行后续操作
 
 
 def create_model(args, in_channels, num_classes,base_c=32):
-    if args.model_name == "X_unet_fin":
-        model = X_unet_fin(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
-    elif args.model_name == "X_unet_fin_1":
-        model = X_unet_fin_1(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
-    elif args.model_name == "X_unet_fin_2":
-        model = X_unet_fin_2(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
-
-    elif args.model_name == "Unet0":
+    if args.model_name == "Unet0":
         model = Unet0(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
     elif args.model_name == "deeplabV3p":
         model = deeplabv3_resnet50(num_classes=num_classes, pretrained_backbone=False)
     elif args.model_name == "lraspp_mobilenetv3_large":
         model = lraspp_mobilenetv3_large(num_classes=num_classes, pretrain_backbone=False)
-    elif args.model_name == "Unet_res":
-        model = Unet_EX(in_channels, num_classes, base_c=base_c, block_type='resnet')
-    elif args.model_name == "Unet_resnest":
-        model = Unet_EX(in_channels, num_classes, base_c=base_c, block_type='resnest')
     elif args.model_name == "FCN":
         model = fcn_resnet50(aux=False, num_classes=num_classes)
     elif args.model_name == "SegNet":
         model = SegNet(num_classes=num_classes)
     elif args.model_name == "DenseASPP":
         model = DenseASPP(num_classes, backbone='densenet121',pretrained_base=False)
-
-    elif args.model_name == "X_unet_fin_al":
-        model = X_unet_fin_al(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
-    elif args.model_name == "X_unet_fin_ar":
-        model = X_unet_fin_ar(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
-    elif args.model_name == "X_unet_fin_am":
-        model = X_unet_fin_am(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
-
-    elif args.model_name == "X_unet_fin_noall":
-        model = X_unet_fin_noall(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
-    elif args.model_name == "X_unet_fin_DA":
-        model = X_unet_fin_DA(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
-    elif args.model_name == "X_unet_fin_CARAFE":
-        model = X_unet_fin_CARAFE(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
-    elif args.model_name == "X_unet_fin_SCSPP":
-        model = X_unet_fin_SCSPP(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
-    elif args.model_name == "X_unet_fin_all":
-        model = X_unet_fin_all(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
-
-    elif args.model_name == "Unet_mobile_s":
-        model = Unet_lite(in_channels, num_classes, base_c=base_c,block_type='mobile_s')
-    elif args.model_name == "Unet_shuffle":
-        model = Unet_lite(in_channels, num_classes, base_c=base_c, block_type='shuffle')
-    elif args.model_name == "UResnet":
-        model = UResnet(in_channels, num_classes, 18)
-
-    elif args.model_name == "X_unet_fin_all2":
-        model = X_unet_fin_all2(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
-    elif args.model_name == "X_unet_fin_all3":
-        model = X_unet_fin_all3(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
-    elif args.model_name == "X_unet_fin_all4":
-        model = X_unet_fin_all4(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
-    elif args.model_name == "X_unet_fin_all5":
-        model = X_unet_fin_all5(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
-    elif args.model_name == "X_unet_fin_all6":
-        model = X_unet_fin_all6(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
-    elif args.model_name == "X_unet_fin_all7":
-        model = X_unet_fin_all7(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
-    elif args.model_name == "X_unet_fin_all8":
+    elif args.model_name == "X_unet_fin_all8":# 自己提出的模型
         model = X_unet_fin_all8(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
+
     else:
         raise ValueError("wrong model name")
     return initialize_weights(model)
 
-def parse_args(wt='0.5'):
+def parse_args(model_name=None):
     import argparse
     parser = argparse.ArgumentParser(description="pytorch unet training")
 
-    parser.add_argument("--model_name", default='X_unet_fin_all8', help="模型名称")
+    parser.add_argument("--model_name", default='Unet0',type=str, help="模型名称")
     parser.add_argument("--optimizer", default='adam',choices=['sgd','adam'] ,help="优化器")
-    parser.add_argument("--base_size", default=256, type=int, help="图片缩放大小")
-    parser.add_argument("--crop_size", default=256,  type=int, help="图片裁剪大小")
+    parser.add_argument("--base_size", default=64, type=int, help="图片缩放大小")
+    parser.add_argument("--crop_size", default=64,  type=int, help="图片裁剪大小")
     parser.add_argument("--base_c", default=32, type=int, help="uent的基础通道数")
     parser.add_argument('--save_method',default='all' ,choices=['all','dict'],help='保存模型的方式')
     parser.add_argument('--pretrained', default='',help='预训练模型路径')
-    parser.add_argument('--w_t', default=wt,help='dice loss的权重')
+    parser.add_argument('--w_t', default=0.5,help='dice loss的权重')
 
-    # parser.add_argument("--data-path", default=r"..\VOCdevkit_cap_c5_bin", help="VOC数据集路径")
-    parser.add_argument("--data-path", default=r"..\VOC_MLCC_6_multi", help="VOC数据集路径")
+    parser.add_argument("--data-path", default=r"..\VOCdevkit_cap_c5_bin", help="VOC数据集路径")
+    # parser.add_argument("--data-path", default=r"..\VOC_extra_defect_bin", help="VOC数据集路径")
     # exclude background
-    parser.add_argument("--num-classes", default=6, type=int)
+    parser.add_argument("--num-classes", default=1, type=int)
     parser.add_argument("--device", default="cuda", help="training device")
-    parser.add_argument("--batch-size", default=10, type=int)
-    parser.add_argument("--epochs", default=100, type=int, metavar="N",
+    parser.add_argument("--batch-size", default=6, type=int)
+    parser.add_argument("--epochs", default=1, type=int, metavar="N",
                         help="number of total epochs to train")
 
     parser.add_argument('--lr', default=3e-4, type=float, help='initial learning rate')
@@ -366,6 +412,7 @@ def parse_args(wt='0.5'):
 # http://localhost:6006/
 if __name__ == '__main__':
     setup_seed(1)
-    args = parse_args('0.4')
+    args = parse_args('X_unet_fin_all8')
     main(args)
+
 
