@@ -144,11 +144,11 @@ def main(args):
 def parse_args():
     parser = argparse.ArgumentParser(description="pytorch segnets training")
     # 主要
-    parser.add_argument("--weights_path", default=r'logs/05-08_16-57-54-X_unet_fin_all8/best_model.pth', type=str, help="权重路径")
-    parser.add_argument("--data_path", default=r'..\VOC_MLCC_8_mul', help="VOCdevkit 路径")
-    parser.add_argument("--classes", default=['E exposure','E skew','P extend','P broken','P Indentation','P crack','E sticky impurities','E collapse angle'], help="类别名")
+    parser.add_argument("--weights_path", default=r'logs/05-09_19-36-22-X_unet_fin_all8_0.5/best_model.pth', type=str, help="权重路径")
+    parser.add_argument("--data_path", default=r'..\VOC_MLCC_6_multi', help="VOCdevkit 路径")
+    parser.add_argument("--classes", default=['E exposure','E skew','P extend','P broken','P Indentation','E sticky impurities'], help="类别名")
     parser.add_argument("--img-size", default=256, type=int,help="图片缩放大小")
-    parser.add_argument("--method", default="fusion",  choices=["fusion", "mask", "contours"], help="输出方式")
+    parser.add_argument("--method", default="mask",  choices=["fusion", "mask", "contours"], help="输出方式")
 
 
     args = parser.parse_args()

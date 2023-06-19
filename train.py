@@ -91,8 +91,8 @@ class SegmentationPresetTrain:
         trans.extend([
             T.CenterCrop(crop_size),
             T.RandomHorizontalFlip(0.5),
-            T.RandomVerticalFlip(0.5),
-            T.Grayscale(),
+            # T.RandomVerticalFlip(0.5),
+            # T.Grayscale(),
             # T.RandomRotation(90),
             # T.ColorJitter(),
             T.ToTensor(),
@@ -340,20 +340,20 @@ def parse_args(model_name=None):
 
     parser.add_argument("--model_name", default=model_name, help="模型名称")
     parser.add_argument("--optimizer", default='adam',choices=['sgd','adam'] ,help="优化器")
-    parser.add_argument("--base_size", default=64, type=int, help="图片缩放大小")
-    parser.add_argument("--crop_size", default=64,  type=int, help="图片裁剪大小")
+    parser.add_argument("--base_size", default=256, type=int, help="图片缩放大小")
+    parser.add_argument("--crop_size", default=256,  type=int, help="图片裁剪大小")
     parser.add_argument("--base_c", default=32, type=int, help="uent的基础通道数")
     parser.add_argument('--save_method',default='all' ,choices=['all','dict'],help='保存模型的方式')
     parser.add_argument('--pretrained', default='',help='预训练模型路径')
     parser.add_argument('--w_t', default=0.5,help='dice loss的权重')
 
-    parser.add_argument("--data-path", default=r"..\VOCdevkit_cap_c5_bin", help="VOC数据集路径")
-    # parser.add_argument("--data-path", default=r"..\VOC_extra_defect_bin", help="VOC数据集路径")
+    # parser.add_argument("--data-path", default=r"..\VOCdevkit_cap_c5_bin", help="VOC数据集路径")
+    parser.add_argument("--data-path", default=r"..\VOC_MLCC_6_multi", help="VOC数据集路径")
     # exclude background
-    parser.add_argument("--num-classes", default=1, type=int)
+    parser.add_argument("--num-classes", default=6, type=int)
     parser.add_argument("--device", default="cuda", help="training device")
     parser.add_argument("--batch-size", default=6, type=int)
-    parser.add_argument("--epochs", default=1, type=int, metavar="N",
+    parser.add_argument("--epochs", default=100, type=int, metavar="N",
                         help="number of total epochs to train")
 
     parser.add_argument('--lr', default=3e-4, type=float, help='initial learning rate')

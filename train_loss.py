@@ -366,6 +366,6 @@ def parse_args(wt='0.5'):
 # http://localhost:6006/
 if __name__ == '__main__':
     setup_seed(1)
-    args = parse_args('0.4')
+    args = parse_args('0.1')
     main(args)
 
