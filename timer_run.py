@@ -26,10 +26,8 @@ def my_job(jobs,repeat=1):
 if __name__ == '__main__':
     repeat = 1 #重复次数
     jobs ={
-        "X_unet_fin_all8": '',
         "Unet0": '',
         "Unet_mobile_s": '',
-        "Unet_res": '',
         'lraspp_mobilenetv3_large': '',
         "FCN": '',
         "SegNet": '',

@@ -2,6 +2,7 @@ import os
 import random
 import time
 import datetime
+import gc
 
 import numpy as np
 import torch
@@ -57,7 +58,7 @@ def _load_dataset(args, batch_size):
                                                collate_fn=train_dataset.collate_fn,
                                                drop_last=True)
     val_loader = torch.utils.data.DataLoader(val_dataset,
-                                             batch_size=1,
+                                             batch_size=batch_size,
                                              num_workers=num_workers,
                                              pin_memory=True,
                                              collate_fn=val_dataset.collate_fn)
@@ -89,8 +90,9 @@ class SegmentationPresetTrain:
             trans.append(T.RandomHorizontalFlip(hflip_prob))
         trans.extend([
             T.CenterCrop(crop_size),
-            # T.RandomHorizontalFlip(0.5),
-            # T.RandomVerticalFlip(0.5),
+            T.RandomHorizontalFlip(0.5),
+            T.RandomVerticalFlip(0.5),
+            T.Grayscale(),
             # T.RandomRotation(90),
             # T.ColorJitter(),
             T.ToTensor(),
@@ -171,8 +173,9 @@ def main(args):
     best_dice = 0.
     start_time = time.time()
     time_calc = Time_calculater()
+
     for epoch in range(args.start_epoch, args.epochs):
-        mean_loss, lr = train_one_epoch(model,loss_fn, optimizer, train_loader, device, epoch, num_classes,
+        mean_loss, lr = train_one_epoch(model,loss_fn,args.w_t, optimizer, train_loader, device, epoch, num_classes,
                                         lr_scheduler=lr_scheduler, print_freq=args.print_freq, scaler=scaler)
         confmat, dice = evaluate(model, val_loader, device=device, num_classes=num_classes)
         # -----------------------保存日志-----------------------
@@ -206,12 +209,13 @@ def main(args):
         # with open(log_dir + '/train_log.csv', 'a', newline='') as csvfile:
         #     writer = csv.writer(csvfile)
         #     writer.writerow([epoch, mean_loss, lr])
-        header_list = ["epoch", "dice", "miou", "mpa",'loss']
+        header_list = ["epoch", "dice", "miou", "mpa",'pa','train_loss','lr','cpa','iou']
         with open(log_dir + '/val_log.csv', 'a', newline='') as csvfile:
             writer = csv.DictWriter(csvfile, fieldnames=header_list)
             if epoch == 0:
                 writer.writeheader()
-            writer.writerow({"epoch": epoch, "dice": dice*100, "miou": confmat["miou"], "mpa": confmat["mpa"],'loss':mean_loss})
+            writer.writerow({"epoch": epoch, "dice": dice*100, "miou": confmat["miou"], "mpa": confmat["mpa"],'pa':confmat['pa'],'train_loss':mean_loss,
+                            'lr':lr,'cpa': confmat['cpa'],'iou':confmat['iou'] })
 
         # -----------------------保存模型-----------------------
         if args.save_best is True:
@@ -240,6 +244,13 @@ def main(args):
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
     print("training time {}".format(total_time_str))
+#     释放内存
+    del model, optimizer, lr_scheduler, train_loader, val_loader, loss_fn, confmat, dice
+    torch.cuda.empty_cache()
+    torch.cuda.empty_cache()
+    gc.collect()
+    gc.collect()
+
 
 
 
@@ -298,7 +309,27 @@ def create_model(args, in_channels, num_classes,base_c=32):
     elif args.model_name == "X_unet_fin_all3":
         model = X_unet_fin_all3(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
     elif args.model_name == "X_unet_fin_all4":
-       model = X_unet_fin_all4(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
+        model = X_unet_fin_all4(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
+    elif args.model_name == "X_unet_fin_all5":
+        model = X_unet_fin_all5(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
+    elif args.model_name == "X_unet_fin_all6":
+        model = X_unet_fin_all6(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
+    elif args.model_name == "X_unet_fin_all7":
+        model = X_unet_fin_all7(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
+
+
+    elif args.model_name == "X_unet_fin_all8":
+        model = X_unet_fin_all8(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
+    elif args.model_name == "X_unet_fin_all8_noall":
+        model = X_unet_fin_all8_noall(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
+    elif args.model_name == "X_unet_fin_all8_DA":
+        model = X_unet_fin_all8_DA(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
+    elif args.model_name == "X_unet_fin_all8_CARAFE":
+        model = X_unet_fin_all8_CARAFE(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
+    elif args.model_name == "X_unet_fin_all8_CPFFM":
+        model = X_unet_fin_all8_CPFFM(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
+
+
     else:
         raise ValueError("wrong model name")
     return initialize_weights(model)
@@ -309,19 +340,20 @@ def parse_args(model_name=None):
 
     parser.add_argument("--model_name", default=model_name, help="模型名称")
     parser.add_argument("--optimizer", default='adam',choices=['sgd','adam'] ,help="优化器")
-    parser.add_argument("--base_size", default=256, type=int, help="图片缩放大小")
-    parser.add_argument("--crop_size", default=256,  type=int, help="图片裁剪大小")
+    parser.add_argument("--base_size", default=64, type=int, help="图片缩放大小")
+    parser.add_argument("--crop_size", default=64,  type=int, help="图片裁剪大小")
     parser.add_argument("--base_c", default=32, type=int, help="uent的基础通道数")
     parser.add_argument('--save_method',default='all' ,choices=['all','dict'],help='保存模型的方式')
     parser.add_argument('--pretrained', default='',help='预训练模型路径')
+    parser.add_argument('--w_t', default=0.5,help='dice loss的权重')
 
     parser.add_argument("--data-path", default=r"..\VOCdevkit_cap_c5_bin", help="VOC数据集路径")
     # parser.add_argument("--data-path", default=r"..\VOC_extra_defect_bin", help="VOC数据集路径")
     # exclude background
     parser.add_argument("--num-classes", default=1, type=int)
     parser.add_argument("--device", default="cuda", help="training device")
-    parser.add_argument("--batch-size", default=10, type=int)
-    parser.add_argument("--epochs", default=50, type=int, metavar="N",
+    parser.add_argument("--batch-size", default=6, type=int)
+    parser.add_argument("--epochs", default=1, type=int, metavar="N",
                         help="number of total epochs to train")
 
     parser.add_argument('--lr', default=3e-4, type=float, help='initial learning rate')
@@ -347,7 +379,7 @@ def parse_args(model_name=None):
 # http://localhost:6006/
 if __name__ == '__main__':
     setup_seed(1)
-    args = parse_args('X_unet_fin_all2')
+    args = parse_args('X_unet_fin_all8')
     main(args)
 
 
