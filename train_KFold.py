@@ -3,21 +3,19 @@ import random
 import time
 import datetime
 import gc
-
-import numpy as np
-import torch
-from torch import nn
-
-from src import UNet
 from train_utils import train_one_epoch, evaluate, create_lr_scheduler
 from utils.my_dataset import VOCSegmentation
 from utils import transforms as T
 import csv
 from torch.utils.tensorboard import SummaryWriter
-from utils.mytools import calculater_1,Time_calculater
+from utils.mytools import calculater_1
 from src.unet_mod import *
 from src.nets import *
-
+import torch
+import torch.nn as nn
+import torch.optim as optim
+from torch.utils.data import DataLoader
+from sklearn.model_selection import KFold
 
 def setup_seed(seed):
     torch.manual_seed(seed)
@@ -38,31 +36,42 @@ def _create_folder(args):
     # self.results_file = log_dir + "/{}_results{}.txt".format(self.model_name, time_str)
     print("当前进行训练: {}".format(log_dir))
     return log_dir, results_file
-def _load_dataset(args, batch_size):
-    train_dataset = VOCSegmentation(args.data_path,
-                                    year="2007",
-                                    transforms=get_transform(args,train=True),
-                                    txt_name="train.txt")
-    # VOCdevkit -> VOC2012 -> ImageSets -> Segmentation -> val.txt
-    val_dataset = VOCSegmentation(args.data_path,
-                                  year="2007",
-                                  transforms=get_transform(args,train=False),
-                                  txt_name="val.txt")
-    num_workers =0
-    # num_workers = min([os.cpu_count(), batch_size if batch_size > 1 else 0, 8])
-    train_loader = torch.utils.data.DataLoader(train_dataset,
-                                               batch_size=batch_size,
-                                               num_workers=num_workers,
-                                               shuffle=True,
-                                               pin_memory=True,
-                                               collate_fn=train_dataset.collate_fn,
-                                               drop_last=True)
-    val_loader = torch.utils.data.DataLoader(val_dataset,
-                                             batch_size=batch_size,
-                                             num_workers=num_workers,
-                                             pin_memory=True,
-                                             collate_fn=val_dataset.collate_fn)
-    return train_loader, val_loader
+# 时间统计
+class Time_calculater(object):
+    def __init__(self):
+        self.start=time.time()
+        self.last_time=self.start
+        self.remain_time=0
+    #定义将秒转换为时分秒格式的函数
+    def time_change(self,time_init):
+        time_list = []
+        if time_init/3600 > 1:
+            time_h = int(time_init/3600)
+            time_m = int((time_init-time_h*3600) / 60)
+            time_s = int(time_init - time_h * 3600 - time_m * 60)
+            time_list.append(str(time_h))
+            time_list.append('h ')
+            time_list.append(str(time_m))
+            time_list.append('m ')
+
+        elif time_init/60 > 1:
+            time_m = int(time_init/60)
+            time_s = int(time_init - time_m * 60)
+            time_list.append(str(time_m))
+            time_list.append('m ')
+        else:
+            time_s = int(time_init)
+
+        time_list.append(str(time_s))
+        time_list.append('s')
+        time_str = ''.join(time_list)
+        return time_str
+    def time_cal(self,i,N,fold):
+        now_time=time.time()
+        self.remain_time=(now_time-self.last_time)*(N-i-1)
+        self.last_time=now_time
+        print('#'*20,f"Fold{fold}-剩余时间："+self.time_change(self.remain_time),'#'*20)
+
 
 def initialize_weights(model):
     for m in model.modules():
@@ -91,7 +100,6 @@ class SegmentationPresetTrain:
             T.CenterCrop(crop_size),
             T.RandomHorizontalFlip(0.5),
             T.RandomVerticalFlip(0.5),
-            T.Grayscale(),
             # T.RandomRotation(90),
             # T.ColorJitter(),
             T.ToTensor(),
@@ -121,175 +129,41 @@ def get_transform(args,train, mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.2
     else:
         return SegmentationPresetEval(base_size,mean=mean, std=std)
 
-def main0(args):
+
+def main(args):
     #-----------------------初始化-----------------------
     log_dir, results_file=_create_folder(args)
     tb = SummaryWriter(log_dir=log_dir)
     device = torch.device(args.device if torch.cuda.is_available() else "cpu")
-    batch_size = args.batch_size
     # segmentation nun_classes + background
     num_classes = args.num_classes + 1
-    #-----------------------加载数据-----------------------
-    train_loader, val_loader = _load_dataset(args, batch_size)
+
     #-----------------------创建模型-----------------------
     model = create_model(args,in_channels=3,num_classes=num_classes,base_c=args.base_c).to(device)
-    if args.pretrained:
-        model = torch.load(args.pretrained)
-    #-----------------------创建优化器-----------------------
-    if num_classes == 2:
-        # 设置cross_entropy中背景和前景的loss权重(根据自己的数据集进行设置)
-        loss_weight = torch.as_tensor([1.0, 2.0], device=device)
-    else:
-        loss_weight = None
-    loss_fn = torch.nn.CrossEntropyLoss(weight=loss_weight,ignore_index=255)
-    params_to_optimize = [p for p in model.parameters() if p.requires_grad]
-    if args.optimizer == "sgd":
-        optimizer = torch.optim.SGD(
-            params_to_optimize,
-            lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay
-        )
-    elif args.optimizer == "adam":
-        optimizer = torch.optim.Adam(
-            params_to_optimize,
-            lr=args.lr, weight_decay=args.weight_decay
-        )
-    else:
-        raise ValueError("wrong optimizer name")
-    #-----------------------创建学习率更新策略-----------------------
-    scaler = torch.cuda.amp.GradScaler() if args.amp else None# 混合精度训练
-    # 创建学习率更新策略，这里是每个step更新一次(不是每个epoch)
-    lr_scheduler = create_lr_scheduler(optimizer, len(train_loader), args.epochs, warmup=True)
-    #-----------------------加载断点训练-----------------------
-    if args.resume:
-        checkpoint = torch.load(args.resume, map_location='cpu')
-        model.load_state_dict(checkpoint['model'])
-        optimizer.load_state_dict(checkpoint['optimizer'])
-        lr_scheduler.load_state_dict(checkpoint['lr_scheduler'])
-        args.start_epoch = checkpoint['epoch'] + 1
-        if args.amp:
-            scaler.load_state_dict(checkpoint["scaler"])
-    #-----------------------训练-----------------------
-    best_dice = 0.
-    start_time = time.time()
-    time_calc = Time_calculater()
 
-    for epoch in range(args.start_epoch, args.epochs):
-        mean_loss, lr = train_one_epoch(model,loss_fn,args.w_t, optimizer, train_loader, device, epoch, num_classes,
-                                        lr_scheduler=lr_scheduler, print_freq=args.print_freq, scaler=scaler)
-        confmat, dice = evaluate(model, val_loader, device=device, num_classes=num_classes)
-        # -----------------------保存日志-----------------------
-        with open(results_file, "a") as f:
-            # 记录每个epoch对应的train_loss、lr以及验证集各指标
-            train_log="train_loss: {:.4f}, lr: {:.6f}".format(mean_loss, lr)
-            val_log=confmat
-            val_log["dice loss"]=format(dice, '.4f')
-            print('--train_log:',train_log)
-            print('--val_log:',val_log)
-            f.write("Epoch: {}  \n".format(epoch))
-            f.write("train_log: {}  \n".format(train_log))
-            f.write("val_log: {}  \n".format(val_log))
-            if epoch == args.epochs - 1:
-                # f.write("args: {}  \n".format(args))
-                model_size = calculater_1(model, (3, args.base_size, args.base_size), device)
-                f.write("model_name: -{}-  \n".format(args.model_name))
-                f.write("datasets: {}  \n".format(args.data_path))
-                f.write('flops:{:.2f}  params:{:.2f}  \n'.format(model_size[0], model_size[1]))
-            # -----------------------打印时间-----------------------
-            time_calc.time_cal(epoch, args.epochs)
-        # -----------------------保存tensorboard-----------------------
-        tb.add_scalar("train/loss", mean_loss, epoch)
-        tb.add_scalar("train/lr", lr, epoch)
-        tb.add_scalar("val/dice loss", dice, epoch)
-        tb.add_scalar("val/miou", confmat["miou"], epoch)
-        tb.add_scalar("val/acc", confmat["mpa"], epoch)
-        # 保存网路结构
-        tb.add_graph(model, torch.rand(1, 3, args.base_size, args.base_size).to(device))
-        # 写入到csv文件
-        # with open(log_dir + '/train_log.csv', 'a', newline='') as csvfile:
-        #     writer = csv.writer(csvfile)
-        #     writer.writerow([epoch, mean_loss, lr])
-        header_list = ["epoch", "dice", "miou", "mpa",'pa','train_loss','lr','cpa','iou']
-        with open(log_dir + '/val_log.csv', 'a', newline='') as csvfile:
-            writer = csv.DictWriter(csvfile, fieldnames=header_list)
-            if epoch == 0:
-                writer.writeheader()
-            writer.writerow({"epoch": epoch, "dice": dice*100, "miou": confmat["miou"], "mpa": confmat["mpa"],'pa':confmat['pa'],'train_loss':mean_loss,
-                            'lr':lr,'cpa': confmat['cpa'],'iou':confmat['iou'] })
 
-        # -----------------------保存模型-----------------------
-        if args.save_best is True:
-            if best_dice < dice:
-                best_dice = dice
-            else:
-                continue
-        # 模型结构、优化器、学习率更新策略、epoch、参数
-        if args.save_method == "all":
-            checkpoints = model
-        else:
-            checkpoints = {"model": model.state_dict(),
-                     "optimizer": optimizer.state_dict(),
-                     "lr_scheduler": lr_scheduler.state_dict(),
-                     "epoch": epoch,
-                     }
-            # 混合精度训练
-            if args.amp:
-                checkpoints["scaler"] = scaler.state_dict()
-        # 保存模型
-        if args.save_best is True:
-            torch.save(checkpoints, log_dir+"/best_model.pth")
-        else:
-            torch.save(checkpoints, log_dir+"/model_{}.pth".format(epoch))
-    #-----------------------训练结束-----------------------
-    total_time = time.time() - start_time
-    total_time_str = str(datetime.timedelta(seconds=int(total_time)))
-    print("training time {}".format(total_time_str))
-#     释放内存
-    del model, optimizer, lr_scheduler, train_loader, val_loader, loss_fn, confmat, dice
-    torch.cuda.empty_cache()
-    torch.cuda.empty_cache()
-    gc.collect()
-    gc.collect()
 
-def main(args):
-    import torch
-    import torch.nn as nn
-    import torch.optim as optim
-    from torch.utils.data import DataLoader
-    from sklearn.model_selection import KFold
 
-    device = torch.device(args.device if torch.cuda.is_available() else "cpu")
-
-    # 定义模型结构
-    num_classes = args.num_classes + 1
-    model = create_model(args,in_channels=3,num_classes=num_classes,base_c=args.base_c).to(device)
-
-    # 定义损失函数和优化器
-    criterion = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(model.parameters())
-
-    # 定义数据集和数据加载器
+    #-----------------------加载数据-----------------------
     dataset =  VOCSegmentation(args.data_path,
                                     year="2007",
                                     transforms=get_transform(args,train=True),
                                     txt_name="trainval.txt")
-    dataloader = torch.utils.data.DataLoader(dataset,
-                                               batch_size=args.batch_size,
-                                               num_workers=0,
-                                               shuffle=True,
-                                               pin_memory=True,
-                                               collate_fn=dataset.collate_fn,
-                                               drop_last=True)
 
 
     # 定义折数
-    num_folds = 5
+    num_folds = args.Kfolds
 
     # 定义交叉验证
     kf = KFold(n_splits=num_folds, shuffle=True)
-
+    #-----------------------训练-----------------------
+    best_score = 0.
+    start_time = time.time()
+    time_calc = Time_calculater()
     # 开始交叉验证训练
     for fold, (train_indices, val_indices) in enumerate(kf.split(dataset)):
-        print(f"Fold {fold + 1}")
+        fold_tmp = fold + 1
+        print(f"Fold {fold_tmp}")
 
         # 创建训练集和验证集的子集
         train_subset = torch.utils.data.Subset(dataset, train_indices)
@@ -310,41 +184,109 @@ def main(args):
                                                pin_memory=True,
                                                collate_fn=dataset.collate_fn,
                                                drop_last=True)
+        # -----------------------创建优化器-----------------------
+        if num_classes == 2:
+            # 设置cross_entropy中背景和前景的loss权重(根据自己的数据集进行设置)
+            loss_weight = torch.as_tensor([1.0, 2.0], device=device)
+        else:
+            loss_weight = None
+        loss_fn = torch.nn.CrossEntropyLoss(weight=loss_weight, ignore_index=255)
+        params_to_optimize = [p for p in model.parameters() if p.requires_grad]
+        if args.optimizer == "sgd":
+            optimizer = torch.optim.SGD(
+                params_to_optimize,
+                lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay
+            )
+        elif args.optimizer == "adam":
+            optimizer = torch.optim.Adam(
+                params_to_optimize,
+                lr=args.lr, weight_decay=args.weight_decay
+            )
+        else:
+            raise ValueError("wrong optimizer name")
+        # -----------------------创建学习率更新策略-----------------------
+        scaler = torch.cuda.amp.GradScaler() if args.amp else None  # 混合精度训练
+        # -----------------------创建学习率更新策略-----------------------
+        scaler = torch.cuda.amp.GradScaler() if args.amp else None  # 混合精度训练
+        # 创建学习率更新策略，这里是每个step更新一次(不是每个epoch)
+        lr_scheduler = create_lr_scheduler(optimizer, len(train_dataloader), args.epochs, warmup=True)
 
-        # 训练当前折的模型
-        for epoch in range(10):
-            model.train()  # 设置为训练模式
-            train_loss = 0.0
 
-            for inputs, labels in train_dataloader:
-                optimizer.zero_grad()
-                inputs, labels = inputs.to(device), labels.to(device)
-                outputs = model(inputs)
-                loss = criterion(outputs, labels)
-                loss.backward()
-                optimizer.step()
-                train_loss += loss.item()
+     # 训练当前折的模型
+        for epoch in range(args.start_epoch, args.epochs):
+            mean_loss, lr = train_one_epoch(model, loss_fn, args.w_t, optimizer, train_dataloader, device, epoch,
+                                            num_classes,
+                                            lr_scheduler=lr_scheduler, print_freq=args.print_freq, scaler=scaler)
+            confmat, dice = evaluate(model, val_dataloader, device=device, num_classes=num_classes)
+            # -----------------------保存日志-----------------------
+            with open(results_file, "a") as f:
+                # 记录每个epoch对应的train_loss、lr以及验证集各指标
+                train_log = "train_loss: {:.4f}, lr: {:.6f}".format(mean_loss, lr)
+                val_log = confmat
+                val_log["dice loss"] = format(dice, '.4f')
+                print('--train_log:', train_log)
+                print('--val_log:', val_log)
+                if epoch == args.epochs - 1 and fold_tmp== num_folds :
+                    # f.write("args: {}  \n".format(args))
+                    f.write(str(args))
+                    model_size = calculater_1(model, (3, args.base_size, args.base_size), device)
+                    f.write("model_name: -{}-  \n".format(args.model_name))
+                    f.write("datasets: {}  \n".format(args.data_path))
+                    f.write('flops:{:.2f}  params:{:.2f}  \n'.format(model_size[0], model_size[1]))
+                # -----------------------打印时间-----------------------
+                time_calc.time_cal(epoch, args.epochs,fold_tmp)
+            # -----------------------保存tensorboard-----------------------
+            tb.add_scalar("train/loss", mean_loss, epoch)
+            tb.add_scalar("train/lr", lr, epoch)
+            tb.add_scalar("val/dice loss", dice, epoch)
+            tb.add_scalar("val/miou", confmat["miou"], epoch)
+            tb.add_scalar("val/acc", confmat["mpa"], epoch)
+            # 保存网路结构
+            tb.add_graph(model, torch.rand(1, 3, args.base_size, args.base_size).to(device))
+            # 写入到csv文件
+            header_list = ["epoch", "dice", "miou", "mpa", 'pa', 'train_loss', 'lr', 'cpa', 'iou']
+            with open(log_dir + f'/val_log_{fold_tmp}.csv', 'a', newline='') as csvfile:
+                writer = csv.DictWriter(csvfile, fieldnames=header_list)
+                if epoch == 0:
+                    writer.writeheader()
+                writer.writerow({"epoch": epoch, "dice": dice * 100, "miou": confmat["miou"], "mpa": confmat["mpa"],
+                                 'pa': confmat['pa'], 'train_loss': mean_loss,
+                                 'lr': lr, 'cpa': confmat['cpa'], 'iou': confmat['iou']})
 
-            avg_train_loss = train_loss / len(train_dataloader)
-            print(f"Epoch {epoch + 1} - Train Loss: {avg_train_loss}")
+            # -----------------------保存模型-----------------------
+            if args.save_best is True:
+                if best_score <  confmat["miou"]:
+                    best_score =  confmat["miou"]
+                else:
+                    continue
+            # 模型结构、优化器、学习率更新策略、epoch、参数
+            if args.save_method == "all":
+                checkpoints = model
+            else:
+                checkpoints = {"model": model.state_dict(),
+                               "optimizer": optimizer.state_dict(),
+                               "lr_scheduler": lr_scheduler.state_dict(),
+                               "epoch": epoch,
+                               }
+                # 混合精度训练
+                if args.amp:
+                    checkpoints["scaler"] = scaler.state_dict()
+            # 保存模型
+            if args.save_best is True:
+                torch.save(checkpoints, log_dir + "/best_model.pth")
+            else:
+                torch.save(checkpoints, log_dir + "/model_{}.pth".format(epoch))
+        # -----------------------训练结束-----------------------
+        total_time = time.time() - start_time
+        total_time_str = str(datetime.timedelta(seconds=int(total_time)))
+        print("training time {}".format(total_time_str))
+    #   释放内存
+    del model, optimizer, lr_scheduler, train_dataloader, val_dataloader, loss_fn, confmat, dice
+    torch.cuda.empty_cache()
+    torch.cuda.empty_cache()
+    gc.collect()
+    gc.collect()
 
-            # 在验证集上评估当前折的模型
-            model.eval()  # 设置为评估模式
-            val_loss = 0.0
-
-            with torch.no_grad():
-                for inputs, labels in val_dataloader:
-                    inputs, labels = inputs.to(device), labels.to(device)
-                    outputs = model(inputs)
-                    loss = criterion(outputs, labels)
-                    val_loss += loss.item()
-
-            avg_val_loss = val_loss / len(val_dataloader)
-            print(f"Epoch {epoch + 1} - Validation Loss: {avg_val_loss}")
-
-        # 在当前折结束后保存模型等操作
-
-    # 所有折的训练结束后进行后续操作
 
 
 def create_model(args, in_channels, num_classes,base_c=32):
@@ -371,11 +313,12 @@ def parse_args(model_name=None):
     import argparse
     parser = argparse.ArgumentParser(description="pytorch unet training")
 
-    parser.add_argument("--model_name", default='Unet0',type=str, help="模型名称")
+    parser.add_argument("--model_name", default="Unet0", help="模型名称")
     parser.add_argument("--optimizer", default='adam',choices=['sgd','adam'] ,help="优化器")
     parser.add_argument("--base_size", default=64, type=int, help="图片缩放大小")
     parser.add_argument("--crop_size", default=64,  type=int, help="图片裁剪大小")
     parser.add_argument("--base_c", default=32, type=int, help="uent的基础通道数")
+    parser.add_argument("--Kfolds", default=5, type=int, help="k折验证数")
     parser.add_argument('--save_method',default='all' ,choices=['all','dict'],help='保存模型的方式')
     parser.add_argument('--pretrained', default='',help='预训练模型路径')
     parser.add_argument('--w_t', default=0.5,help='dice loss的权重')
@@ -385,8 +328,8 @@ def parse_args(model_name=None):
     # exclude background
     parser.add_argument("--num-classes", default=1, type=int)
     parser.add_argument("--device", default="cuda", help="training device")
-    parser.add_argument("--batch-size", default=6, type=int)
-    parser.add_argument("--epochs", default=1, type=int, metavar="N",
+    parser.add_argument("--batch-size", default=2, type=int)
+    parser.add_argument("--epochs", default=10, type=int, metavar="N",
                         help="number of total epochs to train")
 
     parser.add_argument('--lr', default=3e-4, type=float, help='initial learning rate')
