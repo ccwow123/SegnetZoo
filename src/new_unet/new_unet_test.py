@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 from utils.mytools import model_test
 import torch.nn.functional as F
-from src.unet_mod.block import Conv,C3
+from src.unet_mod.block import Conv,C3,CoordAtt
 
 
 
@@ -77,7 +77,37 @@ class unet_t1(nn.Module):
         out = self.out_conv(x)
         return out
 
+# 加入CA模块在每个下采样后面，即left
+class unet_t2(unet_t1):
+    def __init__(self,
+                 in_channels: int = 3,
+                 num_classes: int = 2,
+                 base_c: int = 32):
+        super().__init__(in_channels, num_classes, base_c)
+        self.att1 = CoordAtt(base_c * 2)
+        self.att2 = CoordAtt(base_c * 4)
+        self.att3 = CoordAtt(base_c * 8)
+        self.att4 = CoordAtt(base_c * 16)
+
+    def forward(self, x):
+        x0 = self.in_conv(x)
+        x1 = self.down1(x0)
+        x1 = self.att1(x1)
+        x2 = self.down2(x1)
+        x2 = self.att2(x2)
+        x3 = self.down3(x2)
+        x3 = self.att3(x3)
+        x4 = self.down4(x3)
+        x4 = self.att4(x4)
+        x = self.up1(x4, x3)
+        x = self.up2(x, x2)
+        x = self.up3(x, x1)
+        x = self.up4(x, x0)
+        out = self.out_conv(x)
+        return out
+
+
 if __name__ == '__main__':
-    model = unet_t1(3,8)
+    model = unet_t2(3,6)
     model_test(model,(2,3,256,256),'params')
     model_test(model,(2,3,256,256),'shape')

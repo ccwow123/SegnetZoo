@@ -307,6 +307,8 @@ def create_model(args, in_channels, num_classes,base_c=32):
         model = X_unet_fin_all8(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
     elif args.model_name == "unet_t1":# 自己提出的模型
         model = unet_t1(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
+    elif args.model_name == "unet_t2":# 自己提出的模型
+        model = unet_t2(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
 
 
 
@@ -318,7 +320,7 @@ def parse_args(model_name=None):
     import argparse
     parser = argparse.ArgumentParser(description="pytorch unet training")
 
-    parser.add_argument("--model_name", default="unet_t1", help="模型名称")
+    parser.add_argument("--model_name", default="unet_t2", help="模型名称")
     parser.add_argument("--optimizer", default='adam',choices=['sgd','adam'] ,help="优化器")
     parser.add_argument("--base_size", default=256, type=int, help="图片缩放大小")
     parser.add_argument("--crop_size", default=256,  type=int, help="图片裁剪大小")
