@@ -11,6 +11,7 @@ from torch.utils.tensorboard import SummaryWriter
 from utils.mytools import calculater_1
 from src.unet_mod import *
 from src.nets import *
+from src.new_unet import *
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -273,7 +274,7 @@ def main(args):
                     checkpoints["scaler"] = scaler.state_dict()
             # 保存模型
             if args.save_best is True:
-                torch.save(checkpoints, log_dir + "/best_model.pth")
+                torch.save(checkpoints, log_dir + "/best_model{}.pth".format(fold_tmp))
             else:
                 torch.save(checkpoints, log_dir + "/model_{}.pth".format(epoch))
         # -----------------------训练结束-----------------------
@@ -304,6 +305,10 @@ def create_model(args, in_channels, num_classes,base_c=32):
         model = DenseASPP(num_classes, backbone='densenet121',pretrained_base=False)
     elif args.model_name == "X_unet_fin_all8":# 自己提出的模型
         model = X_unet_fin_all8(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
+    elif args.model_name == "unet_t1":# 自己提出的模型
+        model = unet_t1(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
+
+
 
     else:
         raise ValueError("wrong model name")
@@ -313,10 +318,10 @@ def parse_args(model_name=None):
     import argparse
     parser = argparse.ArgumentParser(description="pytorch unet training")
 
-    parser.add_argument("--model_name", default="Unet0", help="模型名称")
+    parser.add_argument("--model_name", default="unet_t1", help="模型名称")
     parser.add_argument("--optimizer", default='adam',choices=['sgd','adam'] ,help="优化器")
-    parser.add_argument("--base_size", default=64, type=int, help="图片缩放大小")
-    parser.add_argument("--crop_size", default=64,  type=int, help="图片裁剪大小")
+    parser.add_argument("--base_size", default=256, type=int, help="图片缩放大小")
+    parser.add_argument("--crop_size", default=256,  type=int, help="图片裁剪大小")
     parser.add_argument("--base_c", default=32, type=int, help="uent的基础通道数")
     parser.add_argument("--Kfolds", default=5, type=int, help="k折验证数")
     parser.add_argument('--save_method',default='all' ,choices=['all','dict'],help='保存模型的方式')

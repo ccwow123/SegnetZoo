@@ -144,7 +144,7 @@ def main(args):
 def parse_args():
     parser = argparse.ArgumentParser(description="pytorch segnets training")
     # 主要
-    parser.add_argument("--weights_path", default=r'D:\Files\_Weights\segzoo\loss\05-09_19-36-22-X_unet_fin_all8_0.5/best_model.pth', type=str, help="权重路径")
+    parser.add_argument("--weights_path", default=r'logs/06-23_21-00-11-unet_t1/best_model.pth', type=str, help="权重路径")
     parser.add_argument("--data_path", default=r'..\VOC_MLCC_6_multi', help="VOCdevkit 路径")
     parser.add_argument("--classes", default=['E exposure','E skew','P extend','P broken','P Indentation','E sticky impurities'], help="类别名")
     parser.add_argument("--img-size", default=256, type=int,help="图片缩放大小")
