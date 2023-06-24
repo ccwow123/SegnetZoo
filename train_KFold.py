@@ -158,7 +158,7 @@ def main(args):
     # 定义交叉验证
     kf = KFold(n_splits=num_folds, shuffle=True)
     #-----------------------训练-----------------------
-
+    time_init = time.time() # 计时开始
     # 开始交叉验证训练
     for fold, (train_indices, val_indices) in enumerate(kf.split(dataset)):
         best_score = 0.
@@ -222,16 +222,20 @@ def main(args):
             mean_loss, lr = train_one_epoch(model, loss_fn, args.w_t, optimizer, train_dataloader, device, epoch,
                                             num_classes,
                                             lr_scheduler=lr_scheduler, print_freq=args.print_freq, scaler=scaler)
-            confmat, dice = evaluate(model, val_dataloader, device=device, num_classes=num_classes)
+            # -----------------------验证-----------------------
+            # 每10个epoch验证一次
+            if epoch % 10 == 0:
+                confmat, dice = evaluate(model, val_dataloader, device=device, num_classes=num_classes)
             # -----------------------保存日志-----------------------
             with open(results_file, "a") as f:
                 # 记录每个epoch对应的train_loss、lr以及验证集各指标
                 train_log = "train_loss: {:.4f}, lr: {:.6f}".format(mean_loss, lr)
-                val_log = confmat
-                val_log["dice loss"] = format(dice, '.4f')
                 print('--train_log:', train_log)
-                print('--val_log:', val_log)
-                if epoch == args.epochs - 1 and fold_tmp== num_folds :
+                if epoch % 10 == 0:
+                    val_log = confmat
+                    val_log["dice loss"] = format(dice, '.4f')
+                    print('--val_log:', val_log)
+                if epoch == args.epochs - 1 and fold_tmp == num_folds :
                     # f.write("args: {}  \n".format(args))
                     f.write(str(args))
                     model_size = calculater_1(model, (3, args.base_size, args.base_size), device)
@@ -243,20 +247,20 @@ def main(args):
             # -----------------------保存tensorboard-----------------------
             tb.add_scalar("train/loss", mean_loss, epoch)
             tb.add_scalar("train/lr", lr, epoch)
-            tb.add_scalar("val/dice loss", dice, epoch)
-            tb.add_scalar("val/miou", confmat["miou"], epoch)
-            tb.add_scalar("val/acc", confmat["mpa"], epoch)
-            # 保存网路结构
-            tb.add_graph(model, torch.rand(1, 3, args.base_size, args.base_size).to(device))
-            # 写入到csv文件
-            header_list = ["epoch", "dice", "miou", "mpa", 'pa', 'train_loss', 'lr', 'cpa', 'iou']
-            with open(log_dir + f'/val_log_{fold_tmp}.csv', 'a', newline='') as csvfile:
-                writer = csv.DictWriter(csvfile, fieldnames=header_list)
-                if epoch == 0:
-                    writer.writeheader()
-                writer.writerow({"epoch": epoch, "dice": dice * 100, "miou": confmat["miou"], "mpa": confmat["mpa"],
-                                 'pa': confmat['pa'], 'train_loss': mean_loss,
-                                 'lr': lr, 'cpa': confmat['cpa'], 'iou': confmat['iou']})
+            if epoch % 10 == 0:
+                tb.add_scalar("val/dice loss", dice, epoch)
+                tb.add_scalar("val/miou", confmat["miou"], epoch)
+                tb.add_scalar("val/acc", confmat["mpa"], epoch)
+
+                # 写入到csv文件
+                header_list = ["epoch", "dice", "miou", "mpa", 'pa', 'train_loss', 'lr', 'cpa', 'iou']
+                with open(log_dir + f'/val_log_{fold_tmp}.csv', 'a', newline='') as csvfile:
+                    writer = csv.DictWriter(csvfile, fieldnames=header_list)
+                    if epoch == 0:
+                        writer.writeheader()
+                    writer.writerow({"epoch": epoch, "dice": dice * 100, "miou": confmat["miou"], "mpa": confmat["mpa"],
+                                     'pa': confmat['pa'], 'train_loss': mean_loss,
+                                     'lr': lr, 'cpa': confmat['cpa'], 'iou': confmat['iou']})
 
             # -----------------------保存模型-----------------------
             if args.save_best is True:
@@ -284,8 +288,12 @@ def main(args):
         # -----------------------训练结束-----------------------
         total_time = time.time() - start_time
         total_time_str = str(datetime.timedelta(seconds=int(total_time)))
-        print("training time {}".format(total_time_str))
-    #   释放内存
+        print("fold{} 训练总时间 {}".format(fold_tmp,total_time_str))
+    #  打印总时间
+    total_time = time.time() - time_init
+    total_time_str = str(datetime.timedelta(seconds=int(total_time)))
+    print("训练结束--总时间 {}".format(total_time_str))
+    # -----------------------释放内存-----------------------
     del model, optimizer, lr_scheduler, train_dataloader, val_dataloader, loss_fn, confmat, dice
     torch.cuda.empty_cache()
     torch.cuda.empty_cache()
@@ -340,7 +348,7 @@ def parse_args(model_name=None):
     parser.add_argument("--num-classes", default=1, type=int)
     parser.add_argument("--device", default="cuda", help="training device")
     parser.add_argument("--batch-size", default=2, type=int)
-    parser.add_argument("--epochs", default=10, type=int, metavar="N",
+    parser.add_argument("--epochs", default=2, type=int, metavar="N",
                         help="number of total epochs to train")
 
     parser.add_argument('--lr', default=3e-4, type=float, help='initial learning rate')
