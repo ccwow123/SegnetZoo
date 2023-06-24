@@ -158,11 +158,12 @@ def main(args):
     # 定义交叉验证
     kf = KFold(n_splits=num_folds, shuffle=True)
     #-----------------------训练-----------------------
-    best_score = 0.
-    start_time = time.time()
-    time_calc = Time_calculater()
+
     # 开始交叉验证训练
     for fold, (train_indices, val_indices) in enumerate(kf.split(dataset)):
+        best_score = 0.
+        start_time = time.time()
+        time_calc = Time_calculater()
         fold_tmp = fold + 1
         print(f"Fold {fold_tmp}")
 
@@ -185,6 +186,9 @@ def main(args):
                                                pin_memory=True,
                                                collate_fn=dataset.collate_fn,
                                                drop_last=True)
+        # -----------------------创建模型-----------------------
+        model=initialize_weights(model)
+
         # -----------------------创建优化器-----------------------
         if num_classes == 2:
             # 设置cross_entropy中背景和前景的loss权重(根据自己的数据集进行设置)
