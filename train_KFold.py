@@ -224,14 +224,14 @@ def main(args):
                                             lr_scheduler=lr_scheduler, print_freq=args.print_freq, scaler=scaler)
             # -----------------------验证-----------------------
             # 每10个epoch验证一次
-            if epoch % 10 == 0:
+            if (epoch+1) % 5 == 0:
                 confmat, dice = evaluate(model, val_dataloader, device=device, num_classes=num_classes)
             # -----------------------保存日志-----------------------
             with open(results_file, "a") as f:
                 # 记录每个epoch对应的train_loss、lr以及验证集各指标
                 train_log = "train_loss: {:.4f}, lr: {:.6f}".format(mean_loss, lr)
                 print('--train_log:', train_log)
-                if epoch % 10 == 0:
+                if (epoch+1) % 5 == 0:
                     val_log = confmat
                     val_log["dice loss"] = format(dice, '.4f')
                     print('--val_log:', val_log)
@@ -247,7 +247,7 @@ def main(args):
             # -----------------------保存tensorboard-----------------------
             tb.add_scalar("train/loss", mean_loss, epoch)
             tb.add_scalar("train/lr", lr, epoch)
-            if epoch % 10 == 0:
+            if (epoch+1) % 5 == 0 or epoch == args.epochs - 1:
                 tb.add_scalar("val/dice loss", dice, epoch)
                 tb.add_scalar("val/miou", confmat["miou"], epoch)
                 tb.add_scalar("val/acc", confmat["mpa"], epoch)
@@ -263,11 +263,11 @@ def main(args):
                                      'lr': lr, 'cpa': confmat['cpa'], 'iou': confmat['iou']})
 
             # -----------------------保存模型-----------------------
-            if args.save_best is True:
-                if best_score <  confmat["miou"]:
-                    best_score =  confmat["miou"]
-                else:
-                    continue
+                if args.save_best is True:
+                    if best_score <  confmat["miou"]:
+                        best_score =  confmat["miou"]
+                    else:
+                        continue
             # 模型结构、优化器、学习率更新策略、epoch、参数
             if args.save_method == "all":
                 checkpoints = model
@@ -332,7 +332,7 @@ def parse_args(model_name=None):
     import argparse
     parser = argparse.ArgumentParser(description="pytorch unet training")
 
-    parser.add_argument("--model_name", default="unet_t2", help="模型名称")
+    parser.add_argument("--model_name", default=model_name, help="模型名称")
     parser.add_argument("--optimizer", default='adam',choices=['sgd','adam'] ,help="优化器")
     parser.add_argument("--base_size", default=256, type=int, help="图片缩放大小")
     parser.add_argument("--crop_size", default=256,  type=int, help="图片裁剪大小")
@@ -342,13 +342,13 @@ def parse_args(model_name=None):
     parser.add_argument('--pretrained', default='',help='预训练模型路径')
     parser.add_argument('--w_t', default=0.5,help='dice loss的权重')
 
-    parser.add_argument("--data-path", default=r"..\VOCdevkit_cap_c5_bin", help="VOC数据集路径")
+    parser.add_argument("--data-path", default=r"..\VOC_MLCC_6_multi", help="VOC数据集路径")
     # parser.add_argument("--data-path", default=r"..\VOC_extra_defect_bin", help="VOC数据集路径")
     # exclude background
-    parser.add_argument("--num-classes", default=1, type=int)
+    parser.add_argument("--num-classes", default=6, type=int)
     parser.add_argument("--device", default="cuda", help="training device")
-    parser.add_argument("--batch-size", default=2, type=int)
-    parser.add_argument("--epochs", default=2, type=int, metavar="N",
+    parser.add_argument("--batch-size", default=6, type=int)
+    parser.add_argument("--epochs", default=100, type=int, metavar="N",
                         help="number of total epochs to train")
 
     parser.add_argument('--lr', default=3e-4, type=float, help='initial learning rate')
