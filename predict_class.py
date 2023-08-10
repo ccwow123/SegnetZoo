@@ -59,17 +59,22 @@ def main(args):
     palette,pallette_dict = palette_init()
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     save_path=create_save_path(args.weights_path)
+
     # 加载数据
-    pre_dataset= VOCSegmentation(args.data_path,
-                                  year="2007",
-                                  transforms=None,
-                                  txt_name="test.txt")
-    pre_imgs,gt = pre_dataset.images,pre_dataset.masks
+    # if args.datasets_type == "VOC":
+    #     pre_dataset= VOCSegmentation(args.data_path,
+    #                               year="2007",
+    #                               transforms=None,
+    #                               txt_name="test.txt")
+    #     pre_imgs,gt = pre_dataset.images,pre_dataset.masks
+    # else:
+    pre_imgs = glob.glob(os.path.join(args.data_path, "*.png" ))
+
     data_transform = transforms.Compose([
         transforms.Resize(args.img_size),
-                                         transforms.ToTensor(),
-                                         transforms.Normalize(mean=(0.485, 0.456, 0.406),
-                                                              std=(0.229, 0.224, 0.225))])
+        transforms.ToTensor(),
+        transforms.Normalize(mean=(0.485, 0.456, 0.406),
+                          std=(0.229, 0.224, 0.225))])
     # 加载模型
     model = torch.load(args.weights_path).to(device)
     model.eval()
@@ -113,7 +118,8 @@ def main(args):
             color_rgb = pallette_dict[str(j)]  # RGB 颜色值为红色
             # 将 RGB 颜色值转换为 BGR 颜色值
             color_bgr = (color_rgb[2], color_rgb[1], color_rgb[0])
-            cv2.putText(mask_cv, label, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, color_bgr, 2)
+            if args.print_text:
+                cv2.putText(mask_cv, label, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, color_bgr, 2)
 
 
         # print("mask_cv.shape: ", mask_cv.shape)
@@ -144,11 +150,17 @@ def main(args):
 def parse_args():
     parser = argparse.ArgumentParser(description="pytorch segnets training")
     # 主要
-    parser.add_argument("--weights_path", default=r'logs/06-23_21-17-00-unet_t2/best_model1.pth', type=str, help="权重路径")
-    parser.add_argument("--data_path", default=r'..\VOC_MLCC_6_multi', help="VOCdevkit 路径")
+    parser.add_argument("--weights_path", default=r'logs/06-25_01-16-43-DenseASPP/best_model1.pth', type=str, help="权重路径")
+
+    parser.add_argument("--data_path", default=r'D:\Files\PyTorch-CycleGA\output\B4-ori-ori\fake_images', help="VOCdevkit 路径")
     parser.add_argument("--classes", default=['E exposure','E skew','P extend','P broken','P Indentation','E sticky impurities'], help="类别名")
+    # parser.add_argument("--datasets_type", default="GAN",  choices=["VOC", "GAN"], help="数据集类型")
+
     parser.add_argument("--img-size", default=256, type=int,help="图片缩放大小")
-    parser.add_argument("--method", default="mask",  choices=["fusion", "mask", "contours"], help="输出方式")
+    parser.add_argument("--method", default="fusion",  choices=["fusion", "mask", "contours"], help="输出方式")
+    parser.add_argument('--print_text', default=False, help="是否输出缺陷文字信息在图片上")
+
+
 
 
     args = parser.parse_args()
