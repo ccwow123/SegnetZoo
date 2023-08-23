@@ -131,8 +131,8 @@ class RandomRotation(object):
         return image, target
 # 色彩抖动
 class ColorJitter(object):
-    def __init__(self):
-        self.color_jitter = T.ColorJitter(brightness=0.5, contrast=0.5, saturation=0.5, hue=0.5)
+    def __init__(self,brightness=0.5, contrast=0, saturation=0, hue=0):
+        self.color_jitter = T.ColorJitter(brightness,contrast,saturation,hue)
     def __call__(self, image, target):
         image = self.color_jitter(image)
         return image, target
