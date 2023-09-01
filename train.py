@@ -18,6 +18,16 @@ from utils.mytools import calculater_1,Time_calculater
 from src.unet_mod import *
 from src.nets import *
 
+from src.transformer.swin_unet.vision_transformer import SwinUnet
+from src.new.hrnets.hrnet import HRnet
+from src.new.CMUNeXt import CMUNeXt
+
+from semseg.models.segformer import SegFormer
+from semseg.models.bisenetv2 import BiSeNetv2
+from semseg.models.ddrnet import DDRNet
+from semseg.models.lawin import Lawin
+from semseg.models.custom_vit import CustomVIT
+from semseg.models.fchardnet import FCHarDNet
 
 def setup_seed(seed):
     torch.manual_seed(seed)
@@ -42,7 +52,7 @@ def _load_dataset(args, batch_size):
     train_dataset = VOCSegmentation(args.data_path,
                                     year="2007",
                                     transforms=get_transform(args,train=True),
-                                    txt_name="train.txt")
+                                    txt_name="train_20.txt")#60v 40 20
     # VOCdevkit -> VOC2012 -> ImageSets -> Segmentation -> val.txt
     val_dataset = VOCSegmentation(args.data_path,
                                   year="2007",
@@ -92,7 +102,7 @@ class SegmentationPresetTrain:
             T.CenterCrop(crop_size),
             T.RandomHorizontalFlip(0.5),
             T.RandomVerticalFlip(0.5),
-            T.Grayscale(),
+            # T.Grayscale(),
             # T.RandomRotation(90),
             # T.ColorJitter(),
             T.ToTensor(),
@@ -204,7 +214,7 @@ def main(args):
         tb.add_scalar("val/miou", confmat["miou"], epoch)
         tb.add_scalar("val/acc", confmat["mpa"], epoch)
         # 保存网路结构
-        tb.add_graph(model, torch.rand(1, 3, args.base_size, args.base_size).to(device))
+        # tb.add_graph(model, torch.rand(1, 3, args.base_size, args.base_size).to(device))
         # 写入到csv文件
         # with open(log_dir + '/train_log.csv', 'a', newline='') as csvfile:
         #     writer = csv.writer(csvfile)
@@ -270,6 +280,29 @@ def create_model(args, in_channels, num_classes,base_c=32):
     elif args.model_name == "X_unet_fin_all8":# 自己提出的模型
         model = X_unet_fin_all8(in_channels=in_channels, num_classes=num_classes, base_c=base_c)
 
+    elif args.model_name == 'SwinUnet':
+        model = SwinUnet()
+
+    elif args.model_name == 'HRnet':
+        model = HRnet(num_classes=num_classes)
+    elif args.model_name == 'CMUNeXt':
+        model = CMUNeXt()
+
+    elif args.model_name == 'SegFormer':
+        model = SegFormer()
+    elif args.model_name == 'BiSeNetv2':
+        model = BiSeNetv2()
+    elif args.model_name == 'DDRNet':
+        model = DDRNet()
+    elif args.model_name == 'Lawin':
+        model = Lawin()
+    elif args.model_name == 'CustomVIT':
+        model = CustomVIT()
+    elif args.model_name == 'FCHarDNet':
+        model = FCHarDNet()
+
+
+
     else:
         raise ValueError("wrong model name")
     return initialize_weights(model)
@@ -280,20 +313,20 @@ def parse_args(model_name=None):
 
     parser.add_argument("--model_name", default=model_name,type=str, help="模型名称")
     parser.add_argument("--optimizer", default='adam',choices=['sgd','adam'] ,help="优化器")
-    parser.add_argument("--base_size", default=64, type=int, help="图片缩放大小")
-    parser.add_argument("--crop_size", default=64,  type=int, help="图片裁剪大小")
+    parser.add_argument("--base_size", default=256, type=int, help="图片缩放大小")
+    parser.add_argument("--crop_size", default=256,  type=int, help="图片裁剪大小")
     parser.add_argument("--base_c", default=32, type=int, help="uent的基础通道数")
     parser.add_argument('--save_method',default='all' ,choices=['all','dict'],help='保存模型的方式')
     parser.add_argument('--pretrained', default='',help='预训练模型路径')
     parser.add_argument('--w_t', default=0.5,help='dice loss的权重')
 
-    parser.add_argument("--data-path", default=r"..\VOCdevkit_cap_c5_bin", help="VOC数据集路径")
-    # parser.add_argument("--data-path", default=r"..\VOC_extra_defect_bin", help="VOC数据集路径")
+    parser.add_argument("--data-path", default=r"E:\datasets\_using\VOC_MLCC_6_3", help="VOC数据集路径")
+    # parser.add_argument("--data-path", default=r"E:\datasets\_using\VOC_MLCCn6", help="VOC数据集路径")
     # exclude background
-    parser.add_argument("--num-classes", default=1, type=int)
+    parser.add_argument("--num-classes", default=6, type=int)
     parser.add_argument("--device", default="cuda", help="training device")
     parser.add_argument("--batch-size", default=6, type=int)
-    parser.add_argument("--epochs", default=1, type=int, metavar="N",
+    parser.add_argument("--epochs", default=100, type=int, metavar="N",
                         help="number of total epochs to train")
 
     parser.add_argument('--lr', default=3e-4, type=float, help='initial learning rate')

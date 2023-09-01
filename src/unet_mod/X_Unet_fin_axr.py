@@ -628,10 +628,10 @@ class X_unet_fin_all8_noall(nn.Module):
         self.down3 = Down_fine(base_c * 4, base_c * 8, n=1)
         self.down4 = Down_fine(base_c * 8, base_c * 16, n=1)
 
-        self.up1 = Up(base_c * 16, base_c * 8 )
-        self.up2 = Up(base_c * 8, base_c * 4 )
-        self.up3 = Up(base_c * 4, base_c * 2 )
-        self.up4 = Up(base_c * 2, base_c)
+        self.up1 = Up_fin(base_c * 16, base_c * 8)
+        self.up2 = Up_fin(base_c * 8, base_c * 4)
+        self.up3 = Up_fin(base_c * 4, base_c * 2)
+        self.up4 = Up_fin(base_c * 2, base_c)
         self.out_conv = OutConv(base_c, num_classes)
 
     def forward(self, x):
@@ -719,7 +719,7 @@ class X_unet_fin_all8_CARAFE(X_unet_fin_all8_noall):
         return out
 
 if __name__ == '__main__':
-    model = X_unet_fin_all8_CARAFE(3,8)
+    model = X_unet_fin_all8_noall(3,7)
     model_test(model,(2,3,256,256),'params')
     model_test(model,(2,3,256,256),'shape')
 
