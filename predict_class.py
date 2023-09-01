@@ -2,7 +2,6 @@ import glob
 import os
 import sys
 sys.path.insert(0, '../')
-
 import time
 import json
 import argparse
@@ -61,14 +60,15 @@ def main(args):
     save_path=create_save_path(args.weights_path)
 
     # 加载数据
-    # if args.datasets_type == "VOC":
-    #     pre_dataset= VOCSegmentation(args.data_path,
-    #                               year="2007",
-    #                               transforms=None,
-    #                               txt_name="test.txt")
-    #     pre_imgs,gt = pre_dataset.images,pre_dataset.masks
-    # else:
-    pre_imgs = glob.glob(os.path.join(args.data_path, "*.png" ))
+    if args.datasets_type == "VOC":
+        pre_dataset= VOCSegmentation(args.data_path,
+                                  year="2007",
+                                  transforms=None,
+                                  txt_name="val.txt")
+        pre_imgs,gt = pre_dataset.images,pre_dataset.masks
+
+    else:
+        pre_imgs = glob.glob(os.path.join(args.data_path, "*.jpg" ))
 
     data_transform = transforms.Compose([
         transforms.Resize(args.img_size),
@@ -147,17 +147,18 @@ def main(args):
     #求FPS
     print("FPS: {:.4f}".format(1/(sum(time_list)/len(time_list))))
 
+
 def parse_args():
     parser = argparse.ArgumentParser(description="pytorch segnets training")
     # 主要
-    parser.add_argument("--weights_path", default=r'logs/06-25_01-16-43-DenseASPP/best_model1.pth', type=str, help="权重路径")
+    parser.add_argument("--weights_path", default=r'revise2/05-11_14-29-20-Unet0/best_model.pth', type=str, help="权重路径")
 
-    parser.add_argument("--data_path", default=r'D:\Files\PyTorch-CycleGA\output\B4-ori-ori\fake_images', help="VOCdevkit 路径")
+    parser.add_argument("--data_path", default=r'E:\datasets\_using\VOC_MLCC_6_multi', help="VOCdevkit 路径")
     parser.add_argument("--classes", default=['E exposure','E skew','P extend','P broken','P Indentation','E sticky impurities'], help="类别名")
-    # parser.add_argument("--datasets_type", default="GAN",  choices=["VOC", "GAN"], help="数据集类型")
+    parser.add_argument("--datasets_type", default="VOC",  choices=["VOC", "GAN"], help="数据集类型")
 
     parser.add_argument("--img-size", default=256, type=int,help="图片缩放大小")
-    parser.add_argument("--method", default="fusion",  choices=["fusion", "mask", "contours"], help="输出方式")
+    parser.add_argument("--method", default="mask",  choices=["fusion", "mask", "contours"], help="输出方式")
     parser.add_argument('--print_text', default=False, help="是否输出缺陷文字信息在图片上")
 
 
